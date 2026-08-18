@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}MetroPilot - 못 읽은 값 입력{% endblock %}
+{% block body_class %}page-manual-input{% endblock %}
+
+{% block nav %}
+{{ username }}님 &nbsp;|&nbsp; <a href="{{ url_for('logout') }}">로그아웃</a>
+{% endblock %}
+
+{% block content %}
+{% with messages = get_flashed_messages() %}
+  {% if messages %}{% for m in messages %}<div class="flash flash-error">{{ m }}</div>{% endfor %}{% endif %}
+{% endwith %}
+
+<h1>못 읽은 값 입력</h1>
+<p class="hint">
+  사진 {{ pending|length }}장에서 일부 측정줄을 못 읽었어요. 사진에 보이는
+  값만 입력해주세요 — 오프셋(대부분 0)은 비워도 됩니다.
+</p>
+
+<form method="post" action="{{ url_for('manual_input_submit', run_id=run_id) }}">
+{% for item in pending %}
+  <fieldset class="manual-item">
+    <legend>{{ item.name }} ({{ item.kind }})</legend>
+    <p class="hint">측정줄 {{ item.line_count }}개 중 {{ item.missing }}개를 못 읽었어요</p>
+
+    <div class="manual-layout">
+      <div class="manual-crops">
+        {% for crop in item.crops %}
+        <img src="{{ url_for('manual_input_crop', run_id=run_id, idx=item.idx, filename=crop) }}"
+             alt="측정줄 {{ loop.index }}">
+        {% endfor %}
+        <a class="new-link" target="_blank"
+           href="{{ url_for('manual_input_photo', run_id=run_id, filename=item.name) }}">사진 전체 열기</a>
+      </div>
+
+      <div class="manual-rows">
+        {% if item.rows %}
+        <div class="manual-sub">이미 읽힌 값 (참고용)</div>
+        <table class="manual-locked">
+          <tr><th>번호</th><th>값</th><th>X</th><th>Y</th>
+              {% if item.category == 'overlay' %}<th>방향</th>{% endif %}</tr>
+          {% for row in item.rows %}
+          <tr>
+            <td class="num">{{ row[0] }}</td><td class="num">{{ row[1] }}</td>
+            <td class="num">{{ row[2] }}</td><td class="num">{{ row[3] }}</td>
+            {% if item.category == 'overlay' %}
+            <td>
+              <select name="dir_locked_{{ item.idx }}_{{ loop.index0 }}">
+                <option value="" {% if not row[4] %}selected{% endif %}>-</option>
+                <option value="상" {% if row[4] == '상' %}selected{% endif %}>상</option>
+                <option value="하" {% if row[4] == '하' %}selected{% endif %}>하</option>
+                <option value="좌" {% if row[4] == '좌' %}selected{% endif %}>좌</option>
+                <option value="우" {% if row[4] == '우' %}selected{% endif %}>우</option>
+              </select>
+            </td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </table>
+        {% endif %}
+
+        <div class="manual-sub">못 읽은 값 — 사진에 보이는 값만 입력해주세요</div>
+        <div class="hint">예: &quot;0=100.2,XY=(100.2,0.0)&quot; 라면 100.2만 적으면 돼요.</div>
+        <table class="manual-new">
+          <tr><th>값</th><th>오프셋(선택)</th>
+              {% if item.category == 'overlay' and item.forced_directions is none %}<th>방향</th>{% endif %}</tr>
+          {% for i in range(item.missing) %}
+          <tr>
+            <td><input type="text" name="val_{{ item.idx }}_{{ i }}" class="num"></td>
+            <td><input type="text" name="off_{{ item.idx }}_{{ i }}" class="num" placeholder="0"></td>
+            {% if item.category == 'overlay' %}
+              {% if item.forced_directions is none %}
+              <td>
+                <select name="dir_{{ item.idx }}_{{ i }}">
+                  <option value="">-</option>
+                  <option value="상">상</option><option value="하">하</option>
+                  <option value="좌">좌</option><option value="우">우</option>
+                </select>
+              </td>
+              {% else %}
+              <td><span class="badge badge-done">{{ item.forced_directions[i] }} 자동</span></td>
+              {% endif %}
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </table>
+        {% if item.category == 'overlay' %}
+          {% if item.forced_directions is none %}
+          <p class="hint">※ 상/하/좌/우가 하나씩 다 있어야 Overlay가 계산돼요</p>
+          {% else %}
+          <p class="hint ok">※ 남은 방향은 자동으로 배정됐어요(값만 입력하면 됨)</p>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+  </fieldset>
+{% endfor %}
+  <button type="submit" class="submit">저장하고 계속</button>
+</form>
+{% endblock %}

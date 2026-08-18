@@ -1,0 +1,45 @@
+# 프로그램 실행 결과물 - 매번 다시 만들 수 있으므로 제외
+측정결과.xlsx
+*.xlsx
+측정결과.html
+측정로그_*.txt
+# 판독 근거(2026-08-07) - 위와 같은 이유로 제외. run_dir 안에 생기므로
+# samples/ 폴더로 검증 테스트를 돌리면 그 안에도 생길 수 있음(실제로 겪음).
+ocr_evidence/
+
+# 파이썬 캐시
+__pycache__/
+*.pyc
+
+# 윈도우가 사진 폴더에 자동으로 만드는 썸네일 캐시 (내용과 무관)
+Thumbs.db
+desktop.ini
+
+# 웹 버전 계정 정보 - 비밀번호 해시라도 git에는 절대 올리지 않음 (webapp/users.py 참고)
+webapp/users.json
+
+# 웹 버전 업로드/처리 결과 - 실행할 때마다 생기는 임시 데이터라 매번 다시 만들 수 있음
+webapp/uploads/
+
+# 웹 버전 로그인 실패 기록 - IP 주소가 담기고 계속 바뀌는 런타임 데이터라 제외
+webapp/login_attempts.json
+
+# 웹 버전 접속 이력 - CD_MEASURE_DATA_DIR 없이 로컬에서 서버를 띄우면 여기 생김
+# (배포판은 /data/ 아래로 가서 이미 제외됨). 로컬 검증 중 로그인할 때마다
+# 생기는 런타임 데이터라 위 login_attempts.json과 같은 이유로 제외(2026-08-12).
+webapp/접속이력.csv
+
+# docker-compose용 비밀값(SECRET_KEY 등) + 실행 데이터 - 둘 다 git에 올리면 안 됨
+.env
+/data/
+
+# Oracle 인스턴스 재시도 스크립트가 남기는 실행 로그 (컴퓨터마다 다른 런타임 기록)
+scripts/oracle_retry.log
+
+# 서버에서 받아온 백업 (scripts/backup_server_data.py)
+# SECRET_KEY와 계정 비밀번호 해시가 그대로 들어 있으므로 절대 커밋하면 안 됨
+backups/
+
+# 가짜 데모 사진 (scripts/regression_check.py --demo 가 만듦)
+# 36장에 73MB라 커밋하지 않음 - seed가 고정이라 언제든 똑같이 다시 만들어짐
+demo_photos/

@@ -1,0 +1,10 @@
+# Caddy 설정 - HTTPS를 자동으로 처리해주는 리버스 프록시.
+# {$CD_MEASURE_DOMAIN} 자리에 실제 도메인(예: cd-measure.duckdns.org)을 환경변수로
+# 넣으면, Caddy가 Let's Encrypt에서 인증서를 자동으로 받아오고 갱신까지 알아서 함
+# (별도로 certbot 설정할 필요 없음 - Caddy의 가장 큰 장점).
+#
+# CD_MEASURE_DOMAIN이 없으면(로컬 테스트) "localhost"로 동작 - 이 경우 Caddy가
+# 자체 인증서(로컬 전용, 브라우저가 "안전하지 않음"으로 표시함 - 정상)를 씀.
+{$CD_MEASURE_DOMAIN:localhost} {
+    reverse_proxy web:5000
+}

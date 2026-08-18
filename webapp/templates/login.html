@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}MetroPilot 로그인{% endblock %}
+{% block body_class %}page-login{% endblock %}
+
+{# 로그인 화면만 상단 바가 없음 (아직 로그인 전이라 갈 곳이 없으므로).
+   그래서 이름표를 아래 상자 안에 직접 넣는다. #}
+{% block header %}{% endblock %}
+
+{% block content %}
+<div class="box">
+  <div class="brand">
+    <span class="brand-badge">
+      <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <rect x="2.8" y="2.8" width="26.4" height="26.4" stroke="currentColor" stroke-width="2.8"/>
+        <path d="M16 9.4v13.2M9.4 16h13.2" stroke="currentColor" stroke-width="3.2"/>
+      </svg>
+    </span>
+    <span class="brand-name"><span class="brand-metro">Metro</span><span class="brand-pilot">Pilot</span></span>
+  </div>
+  <p class="tagline">AI-Powered Optical Metrology</p>
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      {% for m in messages %}<div class="error">{{ m }}</div>{% endfor %}
+    {% endif %}
+  {% endwith %}
+  <form method="post">
+    <input type="text" name="username" placeholder="아이디" required autofocus>
+    <input type="password" name="password" placeholder="비밀번호" required>
+    <button type="submit">로그인</button>
+  </form>
+  <p class="foot">계정은 관리자가 만들어 드려요</p>
+  <p class="foot"><a href="{{ url_for('demo_intro') }}">데모 체험하기 →</a></p>
+</div>
+{% endblock %}

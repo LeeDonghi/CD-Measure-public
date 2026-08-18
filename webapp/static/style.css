@@ -1,0 +1,1041 @@
+/* CD Measure 웹 화면 공통 스타일.
+ *
+ * 원래는 템플릿 8개가 각자 <style>을 들고 있어서, 파란색 하나 바꾸려면
+ * 8군데를 똑같이 고쳐야 했음(그러다 한 군데를 빠뜨리면 화면마다 색이 달라짐).
+ * 그래서 전부 이 파일 한 곳으로 모았음. 2026-08-04.
+ *
+ * 2026-08-05 "계측 리포트" 시안 적용. 바뀐 생각은 이것 하나:
+ *   화면의 주인공은 UI가 아니라 숫자다.
+ * 그래서 주 색을 밝은 파랑(#2563eb)에서 검정에 가까운 잉크 남색으로 낮추고,
+ * 숫자는 전부 등폭(tabular)으로 세워서 표에서 자릿수가 세로로 맞게 했음.
+ * 색이 조용해질수록 "확인필요" 주황이 눈에 들어온다.
+ *
+ * 읽는 순서:
+ *   1) 색·크기 값 (변수)   ← 색을 바꾸고 싶으면 여기만 고치면 전부 반영됨
+ *   2) 기본 뼈대 (body / header / main)
+ *   3) 여러 화면이 같이 쓰는 부품 (카드, 버튼, 표, 알림 등)
+ *   4) 화면별로만 다른 것   ← <body class="page-XXX">로 구분
+ */
+
+/* ── 1) 색·크기 값 ─────────────────────────────────────────────────
+ * var(--이름) 형태로 아래 값을 가져다 씀. 예: color: var(--primary)
+ * "--primary"만 바꾸면 버튼·링크·진행률 막대가 한꺼번에 바뀜.
+ */
+:root {
+  --font: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+  /* 숫자 전용 글꼴. 등폭이라 1과 8이 같은 폭을 차지해서 표에서 자릿수가
+     세로로 정렬됨 — 측정값을 눈으로 훑을 때 이게 실제로 차이가 남. */
+  --mono: 'Consolas', 'D2Coding', ui-monospace, 'Courier New', monospace;
+
+  --primary: #1c3f5f;          /* 주 색 (버튼, 링크, 진행률) — 잉크 남색 */
+  --primary-dark: #12293e;     /* 위 색의 마우스 올렸을 때 */
+  --primary-soft-bg: #e7eef4;  /* 주 색의 옅은 배경 (보조 버튼, 안내 상자) */
+  --primary-soft-line: #cfdce6;
+
+  --page-bg: #eef1f3;          /* 화면 전체 배경 */
+  --surface: #ffffff;          /* 카드·표 같은 "종이" 배경 */
+  --surface-alt: #f6f8f9;      /* 표 머리글처럼 살짝 눌러야 하는 면 */
+
+  --text: #16212b;
+  --text-muted: #5c6b78;       /* 설명 문구 */
+  --text-faint: #8d99a4;       /* 더 흐린 보조 문구 */
+  --line: #d8dee4;             /* 옅은 구분선 */
+  --line-soft: #edf0f3;        /* 표 안쪽처럼 더 옅어야 하는 선 */
+  --input-line: #c9d2d9;
+
+  --danger: #b3261e;           /* 실패·삭제 */
+  --danger-dark: #8e1e18;
+  --danger-bg: #fbe9e7;
+  --warn: #a45a06;             /* 확인필요 (실패는 아니고 사람이 봐야 하는 것) */
+  --warn-bg: #fdf1e3;
+  --ok: #1a7f5a;               /* 정상 */
+  --ok-bg: #e6f3ee;
+
+  --shadow-sm: 0 1px 3px rgba(22, 33, 43, .07);
+  --shadow-md: 0 1px 6px rgba(22, 33, 43, .08);
+  --radius: 6px;
+}
+
+/* ── 2) 기본 뼈대 ─────────────────────────────────────────────────── */
+
+body {
+  font-family: var(--font);
+  background: var(--page-bg);
+  color: var(--text);
+  margin: 0;
+}
+
+header {
+  background: var(--surface);
+  padding: 12px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+}
+
+header a {
+  color: var(--primary);
+  text-decoration: none;
+  font-size: 14px;
+}
+
+header .nav {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* 상단 바 왼쪽 이름표. 아이콘은 SVG 마크(사각 테두리+십자, currentColor라
+   배지 배경색을 따라감), 글자는 "MetroPilot"을 Metro/Pilot 두 톤으로
+   나눠 씀(2026-08-12). IBM Plex Sans는 base.html에서 구글 폰트로 불러옴 -
+   못 불러오면 var(--font)로 조용히 넘어감(브랜드 장식일 뿐 필수 아님). */
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-size: 15px;
+}
+
+.brand-badge {
+  background: var(--primary);
+  color: var(--surface);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px;
+  border-radius: 4px;
+}
+
+.brand-badge svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+.brand-name {
+  font-family: 'IBM Plex Sans', var(--font);
+  font-weight: 700;
+  letter-spacing: -.02em;
+}
+.brand-metro { color: var(--text); }
+.brand-pilot { color: var(--primary); }
+
+/* 화면 이름(예: "접속 이력")을 이름표 옆에 붙일 때 */
+.brand-tag {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 400;
+  padding-left: 8px;
+  border-left: 1px solid var(--line);
+}
+
+/* 화면 폭은 내용에 따라 달라서(표는 넓게, 결과 카드는 좁게) 아래 4)에서
+   화면별로 다시 지정함. 여기 값은 따로 지정 안 한 화면의 기본값. */
+main {
+  max-width: 920px;
+  margin: 24px auto;
+  padding: 0 16px 60px;
+}
+
+h1, h2 { letter-spacing: -.01em; }
+
+/* 자바스크립트가 보였다/숨겼다 할 때 쓰는 표시.
+   (예: RDL이 아닐 때 Line&Space 칸, 업로드 시작 전의 진행률 막대) */
+.hidden {
+  display: none;
+}
+
+/* 키보드로 옮겨 다닐 때 지금 어디에 있는지 보이게. 마우스 클릭에는 안 뜸
+   (:focus가 아니라 :focus-visible이라서). */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+input:focus-visible + .pick-btn,
+.seg input:focus-visible + span {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* ── 3) 여러 화면이 같이 쓰는 부품 ───────────────────────────────── */
+
+/* 흰 종이 같은 상자 (처리중 화면, 결과 화면) */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow-md);
+}
+
+/* 입력칸 밑에 붙는 작은 설명 */
+.hint {
+  color: var(--text-faint);
+  font-size: 12px;
+  margin-top: 6px;
+  line-height: 1.5;
+}
+
+/* 서버가 보낸 한 줄 알림(flash). 모양은 같고 색만 두 가지 */
+.flash {
+  padding: 11px 14px;
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  font-size: 13px;
+  border: 1px solid transparent;
+}
+
+.flash-error {
+  background: var(--danger-bg);
+  border-color: #f0c9c5;
+  color: var(--danger-dark);
+  font-size: 14px;
+}
+
+.flash-info {
+  background: var(--primary-soft-bg);
+  border-color: var(--primary-soft-line);
+  color: var(--primary-dark);
+}
+
+/* 진행률 막대 (업로드용·처리중용 둘 다) */
+.bar {
+  background: var(--line-soft);
+  border-radius: 20px;
+  height: 8px;
+  overflow: hidden;
+  margin-top: 12px;
+}
+
+.bar-fill {
+  background: var(--primary);
+  height: 100%;
+  width: 0;
+  border-radius: 20px;
+  transition: width .2s;
+}
+
+/* 기록이 하나도 없을 때 보여주는 안내 */
+.empty {
+  text-align: center;
+  color: var(--text-faint);
+  padding: 40px 0;
+}
+
+/* 확인필요 등 "사람이 한 번 봐야 하는" 숫자 */
+.warn { color: var(--warn); }
+.ok   { color: var(--ok); }
+
+/* 숫자가 세로로 줄 맞아야 하는 곳에 붙임 */
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+/* 입력 폼 — 새 측정 화면과 비밀번호 변경 화면이 같이 씀.
+   ⚠️ 예전에는 이 규칙들이 .page-new-run 안에만 있어서 비밀번호 변경 화면은
+   테두리도 버튼 모양도 없는 맨 HTML로 나왔음(2026-08-05에 발견해서 공통으로 뺌). */
+fieldset {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin-bottom: 12px;
+}
+
+legend {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 0 6px;
+}
+
+label {
+  display: inline-block;
+  margin: 6px 10px 6px 0;
+  font-size: 14px;
+}
+
+input[type=text],
+input[type=number],
+input[type=password] {
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--surface);
+  padding: 8px 10px;
+  border: 1px solid var(--input-line);
+  border-radius: var(--radius);
+}
+
+input[type=number] { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+/* 숫자칸 placeholder가 한글이면(예: "없음") 위 모노스페이스 글꼴을 그대로
+   물려받아 숫자용 글꼴로 한글이 찍혀 어색해 보임(2026-08-12, 사용자 지적 -
+   "개수"·"없음" 둘 다 같은 원인). 실제로 친 값은 계속 모노스페이스로 두고
+   placeholder만 기본 글꼴로 되돌림 - 앞으로 어디에 한글 placeholder를
+   추가해도 이 문제가 안 생기게 여기서 한 번에 막음. */
+input[type=number]::placeholder {
+  font-family: var(--font);
+  font-variant-numeric: normal;
+}
+
+button.submit {
+  width: 100%;
+  padding: 12px;
+  background: var(--primary);
+  color: var(--surface);
+  border: none;
+  border-radius: var(--radius);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+button.submit:hover { background: var(--primary-dark); }
+button.submit:disabled { background: #9aa6af; cursor: default; }
+
+/* 상태 뱃지 (실행 기록) */
+.badge {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 20px;
+  font-size: 12px;
+}
+
+.badge-done       { background: var(--ok-bg); color: var(--ok); }
+.badge-error      { background: var(--danger-bg); color: var(--danger-dark); }
+.badge-processing { background: var(--primary-soft-bg); color: var(--primary); }
+.badge-unknown    { background: #eef0f2; color: var(--text-muted); }
+
+/* ── 4) 화면별로만 다른 것 ───────────────────────────────────────── */
+
+/* 로그인 (page-login) — 유일하게 상단 바가 없고 화면 한가운데에 상자만 있음 */
+.page-login main {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+.page-login .box {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  padding: 32px 32px 28px;
+  border-radius: 10px;
+  box-shadow: var(--shadow-md);
+  width: 288px;
+  text-align: center;
+}
+
+.page-login .brand {
+  font-size: 19px;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.page-login .tagline {
+  font-family: 'IBM Plex Mono', var(--mono);
+  color: var(--text-faint);
+  font-size: 11px;
+  letter-spacing: .06em;
+  margin: 0 0 22px;
+}
+
+.page-login input {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 8px;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.page-login button {
+  width: 100%;
+  padding: 11px;
+  margin-top: 6px;
+  background: var(--primary);
+  color: var(--surface);
+  border: none;
+  border-radius: var(--radius);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.page-login button:hover { background: var(--primary-dark); }
+
+.page-login .error {
+  color: var(--danger-dark);
+  background: var(--danger-bg);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+
+.page-login .foot {
+  color: var(--text-faint);
+  font-size: 11px;
+  margin: 16px 0 0;
+}
+
+/* 홈 (page-home) — 링크 나열 대신, 무엇을 하는 곳인지 한 줄씩 붙은 메뉴 */
+.page-home main { max-width: 560px; }
+
+.page-home h1 {
+  font-size: 17px;
+  margin: 0 0 16px;
+}
+
+.page-home .menu {
+  display: grid;
+  gap: 10px;
+}
+
+.page-home .menu a {
+  display: block;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  text-decoration: none;
+  color: var(--text);
+}
+
+.page-home .menu a:hover {
+  border-color: var(--primary-soft-line);
+  background: var(--primary-soft-bg);
+}
+
+/* 제일 많이 누르는 항목만 테두리로 구분 — 색을 더 쓰지 않고 무게만 준다 */
+.page-home .menu a.lead { border-color: var(--primary); }
+.page-home .menu a.lead .menu-label { color: var(--primary); }
+
+.page-home .menu-label { display: block; font-weight: 700; font-size: 14.5px; }
+
+.page-home .menu-desc {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 3px;
+  line-height: 1.5;
+}
+
+.page-home .menu-tag {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-faint);
+  margin-left: 6px;
+}
+
+/* 새 측정 (page-new-run) */
+.page-new-run main { max-width: 640px; }
+
+.page-new-run h1 { font-size: 17px; margin: 0 0 16px; }
+
+/* 시안 비교(2026-08-12, 사용자가 3번 선택) - 박스 배경/테두리 대신 왼쪽
+   남색 선 하나로만 섹션을 구분. 다른 화면(비밀번호 변경 등)은 공용
+   fieldset 규칙을 그대로 쓰므로 이 화면에만 덮어씀. */
+.page-new-run fieldset {
+  background: transparent;
+  border: none;
+  border-left: 3px solid var(--primary-soft-line);
+  border-radius: 0;
+  padding: 4px 0 6px 18px;
+  margin-bottom: 26px;
+}
+
+.page-new-run legend {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--text);
+  padding: 0;
+  margin-bottom: 10px;
+}
+
+.page-new-run input[type=text],
+.page-new-run input[type=number] { width: 110px; }
+
+.page-new-run input[name=customer],
+.page-new-run input[name=material],
+.page-new-run input[name=layer] { width: 140px; }
+
+/* "Item 개수"처럼 한두 자리 숫자만 넣는 칸은 좁게. select.narrow는
+   "직접 입력" 글자까지 담아야 해서 조금 더 넓게 잡음. */
+.page-new-run input.narrow { width: 60px; }
+.page-new-run select.narrow { width: 104px; }
+
+.page-new-run select {
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--surface);
+  padding: 8px 10px;
+  border: 1px solid var(--input-line);
+  border-radius: var(--radius);
+}
+
+/* Item 행 안의 "포인트"/"Target"/"Line"/"Space" 같은 부가 설명 글자.
+   예전엔 그냥 맨 텍스트라 "Item N"(.label)보다 커 보였음(2026-08-12,
+   사용자가 발견) - 같은 스타일로 맞춤. */
+.page-new-run .field-label {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.page-new-run .row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.page-new-run .row span.label {
+  width: 70px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.page-new-run button.gen {
+  background: var(--primary-soft-bg);
+  color: var(--primary);
+  border: 1px solid var(--primary-soft-line);
+  border-radius: var(--radius);
+  padding: 7px 12px;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.page-new-run button.gen:hover { background: var(--primary-soft-line); }
+
+/* 공정 선택 — 라디오 버튼 동그라미 대신 눌린 칸으로 보이게.
+   ⚠️ <input type=radio>를 없애면 안 됨(자바스크립트가
+   input[name=process]:checked로 지금 공정을 읽음). 그래서 지우지 않고
+   화면에서만 숨기고, 옆의 <span>을 대신 칠한다. */
+.page-new-run .segs { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.page-new-run .segs label { margin: 0; }
+
+.page-new-run .seg input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.page-new-run .seg span {
+  display: inline-block;
+  padding: 7px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--page-bg);
+  color: var(--text-muted);
+  font-size: 13.5px;
+  cursor: pointer;
+}
+
+.page-new-run .seg input:checked + span {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--surface);
+  font-weight: 700;
+}
+
+/* 사진 폴더 고르기.
+   ⚠️ 브라우저가 그리는 "파일 선택 / 선택된 파일 없음" 문구는 CSS로 못 바꿈.
+   그래서 진짜 <input type=file>은 화면에서 숨기고 <label>을 버튼처럼 보여줌.
+   display:none이 아니라 크기 1px + opacity 0으로 숨기는 이유: 완전히 없애면
+   키보드 Tab으로 도달할 수 없게 되기 때문. */
+.page-new-run .filepick {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.page-new-run .filepick input[type=file] {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.page-new-run .pick-btn {
+  margin: 0;
+  padding: 8px 16px;
+  background: var(--primary-soft-bg);
+  color: var(--primary);
+  border: 1px solid var(--primary-soft-line);
+  border-radius: var(--radius);
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.page-new-run .pick-btn:hover { background: var(--primary-soft-line); }
+
+.page-new-run .pick-name {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.page-new-run .pick-name.none { color: var(--text-faint); }
+
+/* 처리 중 (page-processing) */
+.page-processing main {
+  max-width: 480px;
+  margin: 60px auto;
+  padding: 0 16px;
+}
+
+.page-processing .card { padding: 32px; text-align: center; }
+.page-processing h1 { font-size: 17px; margin: 0 0 20px; }
+
+/* 이 막대는 업로드 막대(.bar)보다 굵음 — 이 화면에는 볼 게 이것뿐이라서 */
+.page-processing .bar {
+  background: var(--primary-soft-bg);
+  height: 14px;
+  margin-top: 0;
+}
+
+.page-processing .bar-fill { transition: width .3s ease; }
+
+.page-processing #text {
+  margin-top: 14px;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.page-processing .error { color: var(--danger-dark); }
+.page-processing .error-box { margin-top: 16px; }
+
+.page-processing .error-box a {
+  color: var(--primary);
+  text-decoration: none;
+  font-size: 14px;
+}
+
+/* 결과 (page-result) */
+.page-result main {
+  max-width: 620px;
+  margin: 32px auto;
+  padding: 0 16px 60px;
+}
+
+.page-result .card { padding: 26px 26px 24px; }
+
+.page-result .result-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.page-result h1 { font-size: 18px; margin: 0; }
+
+.page-result .run-tag {
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--surface-alt);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 3px 11px;
+  white-space: nowrap;
+}
+
+.page-result .run-summary {
+  font-size: 12px;
+  color: var(--text-faint);
+  margin: 0 0 10px;
+}
+
+/* Item별 확인필요/스펙이탈/겹침/포인트 수 불일치 목록(2026-08-12 개편).
+   왼쪽 강조선은 "새 측정" 화면(page-new-run fieldset)과 톤을 통일한 것 -
+   문제 있는 Item만 주황 선으로 바뀌어서 스크롤 없이도 눈에 띔. 표 머리글은
+   실행 기록/접속 이력 표와 같은 11px, 몸통 줄은 흰색을 아예 안 쓰고
+   --surface-alt/--page-bg 두 회색만 교차시켜 눈부심을 줄임(사용자 피드백:
+   "표가 너무 흰 배경이라 눈이 편하지 않다"). Artifact로 세 번(표/카드/강조선,
+   배경색 3안, 헤더 크기) 시안을 보여주고 확정한 모양 그대로 옮김. */
+.page-result .rail-list {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.page-result .rail-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.page-result .rail-head {
+  background: var(--primary-soft-bg);
+  color: var(--primary-dark);
+  padding: 9px 16px 9px 17px;
+  border-bottom: 1px solid var(--primary-soft-line);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.page-result .rail-body .rail-row {
+  padding: 12px 16px 12px 14px;
+  border-left: 3px solid var(--primary-soft-line);
+  background: var(--surface-alt);
+}
+.page-result .rail-body .rail-row:nth-child(even) { background: var(--page-bg); }
+.page-result .rail-body .rail-row + .rail-row { border-top: 1px solid var(--line-soft); }
+/* ⚠️ 이 문제 표시 선(has-issue)이 이 화면의 유일한 "봐야 할 것" 신호라서
+   빠지면 안 됨 - 확인필요/스펙이탈/겹침/불일치 중 하나라도 있으면 켜짐
+   (result.html에서 계산). */
+.page-result .rail-body .rail-row.has-issue { border-left-color: var(--warn); }
+
+.page-result .rail-name { flex: 0 0 128px; }
+.page-result .rail-head .rail-name { padding-left: 3px; } /* 강조선 3px만큼 본문과 맞춤 */
+.page-result .rail-body .rail-name { font-weight: 700; font-size: 13.5px; }
+
+.page-result .rail-points { flex: 0 0 60px; text-align: right; }
+.page-result .rail-body .rail-points { font-size: 12px; color: var(--text-faint); }
+
+.page-result .rail-metrics { flex: 1; display: flex; gap: 18px; justify-content: flex-end; }
+.page-result .rail-metric { min-width: 52px; text-align: right; }
+.page-result .rail-body .rail-metric {
+  font-size: 14px;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.page-result .cell-warn { color: var(--warn); font-weight: 700; }
+.page-result .cell-ok { color: var(--ok); }
+.page-result .cell-dash { color: var(--text-faint); }
+
+.page-result .buttons {
+  margin-top: 18px;
+  display: flex;
+  gap: 10px;
+}
+
+.page-result .buttons a {
+  flex: 1;
+  text-align: center;
+  padding: 11px;
+  border-radius: var(--radius);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.page-result .btn-primary { background: var(--primary); color: var(--surface); }
+.page-result .btn-primary:hover { background: var(--primary-dark); }
+
+.page-result .btn-secondary {
+  background: var(--primary-soft-bg);
+  color: var(--primary);
+  border: 1px solid var(--primary-soft-line);
+}
+
+.page-result .btn-secondary:hover { background: var(--primary-soft-line); }
+
+.page-result .new-link {
+  display: block;
+  text-align: center;
+  margin-top: 18px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* 되돌릴 수 없는 작업(원본 사진 삭제)만 모아두는 칸 */
+.page-result .danger-zone {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--line);
+}
+
+.page-result .danger-zone p {
+  font-size: 12px;
+  color: var(--text-faint);
+  margin: 0 0 10px;
+  line-height: 1.6;
+}
+
+.page-result .btn-danger {
+  width: 100%;
+  padding: 10px;
+  background: var(--surface);
+  color: var(--danger-dark);
+  border: 1px solid #e3b6b2;
+  border-radius: var(--radius);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.page-result .btn-danger:hover { background: var(--danger-bg); }
+
+.page-result .deleted-note {
+  font-size: 13px;
+  color: var(--ok);
+  text-align: center;
+}
+
+/* 실행 기록 (page-runs) */
+.page-runs h1 { font-size: 17px; margin: 0 0 14px; }
+
+/* 표가 화면보다 넓어지면 표만 옆으로 밀리게(페이지 전체가 밀리면 안 됨) */
+.page-runs .tablewrap {
+  overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.page-runs table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.page-runs th,
+.page-runs td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.page-runs th {
+  background: var(--surface-alt);
+  color: var(--text-muted);
+  font-size: 11px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.page-runs tr:last-child td { border-bottom: none; }
+.page-runs tbody tr:hover td { background: var(--surface-alt); }
+.page-runs td.num { white-space: nowrap; }
+.page-runs .warn { font-weight: 700; }
+
+.page-runs .links a {
+  color: var(--primary);
+  text-decoration: none;
+  margin-right: 10px;
+  font-size: 12px;
+}
+
+.page-runs .links a:hover { text-decoration: underline; }
+.page-runs .err-msg { color: var(--danger-dark); font-size: 12px; }
+
+/* 로그 보기 (page-log) */
+.page-log main { max-width: 900px; }
+
+.page-log .filename {
+  color: var(--text-faint);
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+/* 로그는 터미널처럼 어두운 배경이 읽기 편해서 여기만 색을 뒤집음 */
+.page-log pre {
+  background: #16212b;
+  color: #dbe3e9;
+  font-family: var(--mono);
+  padding: 20px;
+  border-radius: var(--radius);
+  overflow-x: auto;
+  font-size: 12.5px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* 접속 이력 (page-access-log) */
+.page-access-log main {
+  max-width: none;
+  margin: 0;
+  padding: 24px 40px 60px;
+}
+
+.page-access-log h1 { font-size: 18px; margin: 0 0 4px; }
+
+.page-access-log .sub {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.page-access-log .tablewrap {
+  overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.page-access-log table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.page-access-log th,
+.page-access-log td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line-soft);
+  text-align: left;
+}
+
+.page-access-log th {
+  background: var(--surface-alt);
+  color: var(--text-muted);
+  font-size: 11px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.page-access-log tbody tr:hover td { background: var(--surface-alt); }
+.page-access-log tr:last-child td { border-bottom: none; }
+.page-access-log td.act { font-weight: 700; }
+.page-access-log td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+/* 동작별 색: 실패는 눈에 띄어야 하고 나머지는 조용히 */
+.page-access-log .fail { color: var(--danger); }
+.page-access-log .run { color: var(--ok); }
+
+.page-access-log .empty {
+  padding: 40px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+/* 표의 열 너비 (시각/아이디/동작/IP는 고정, 비고만 남는 폭 차지) */
+.page-access-log .col-when { width: 160px; }
+.page-access-log .col-user { width: 120px; }
+.page-access-log .col-act  { width: 110px; }
+.page-access-log .col-ip   { width: 130px; }
+
+/* 비밀번호 변경 (page-change-password) */
+.page-change-password main { max-width: 460px; }
+.page-change-password h1 { font-size: 17px; margin: 0 0 14px; }
+.page-change-password label { display: block; font-size: 13px; color: var(--text-muted); }
+
+.page-change-password input[type=password] {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 4px;
+}
+
+/* 못 읽은 값 입력 (page-manual-input).
+ * 겹쳐 찍힌 라벨(22장 중 3장은 지금도 방향까지 직접 골라야 함) 사진은
+ * 계측기 쪽 문제라 앞으로도 계속 나오는 상시 화면 — 그래서 공용 스타일만
+ * 상속한 임시 모양 대신 여기서 제대로 잡음(2026-08-10). */
+.page-manual-input main { max-width: 1000px; }
+.page-manual-input h1 { font-size: 17px; margin: 0 0 6px; }
+
+.manual-item { padding: 18px 20px 20px; }
+.manual-item + .manual-item { margin-top: 4px; }
+
+.manual-layout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: flex-start;
+  margin-top: 4px;
+}
+
+/* 사진 한 장 안에서 잘라낸 측정줄들 - 세로로 쌓아서 보여줌 */
+.manual-crops {
+  flex: none;
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.manual-crops img {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+.manual-crops .new-link {
+  margin-top: 4px;
+  font-size: 12.5px;
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.manual-crops .new-link:hover { text-decoration: underline; }
+
+.manual-rows { flex: 1; min-width: 340px; }
+
+/* legend(사진 파일명)보다 한 단계 낮은 소제목 - "이미 읽힌 값" / "못 읽은 값" */
+.manual-sub {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  color: var(--text-muted);
+  margin: 14px 0 8px;
+}
+.manual-rows > .manual-sub:first-child { margin-top: 0; }
+
+.manual-locked, .manual-new {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.manual-locked th, .manual-new th,
+.manual-locked td, .manual-new td {
+  padding: 7px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.manual-locked th, .manual-new th {
+  background: var(--surface-alt);
+  color: var(--text-muted);
+  font-size: 11px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.manual-locked tr:last-child td, .manual-new tr:last-child td { border-bottom: none; }
+
+/* 새로 입력하는 칸은 셀 안에서 꽉 차야 폭이 좁은 화면에서도 누르기 편함 */
+.manual-new input[type=text] { width: 100%; box-sizing: border-box; }
+
+.manual-locked select, .manual-new select {
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface);
+  padding: 6px 8px;
+  border: 1px solid var(--input-line);
+  border-radius: var(--radius);
+}
+
+.page-manual-input .hint.ok { color: var(--ok); }
+
+.page-manual-input .submit { margin-top: 4px; }

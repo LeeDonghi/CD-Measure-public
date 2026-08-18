@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}MetroPilot - 처리 완료{% endblock %}
+{% block body_class %}page-result{% endblock %}
+
+{% block nav %}
+{% if is_demo %}
+<a href="{{ url_for('demo_intro') }}">데모 다시 체험하기</a>
+{% else %}
+<a href="{{ url_for('runs') }}">실행 기록</a> &nbsp;|&nbsp;
+<a href="{{ url_for('home') }}">홈</a> &nbsp;|&nbsp;
+<a href="{{ url_for('logout') }}">로그아웃</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+{% with messages = get_flashed_messages() %}
+  {% if messages %}{% for m in messages %}<div class="flash flash-info">{{ m }}</div>{% endfor %}{% endif %}
+{% endwith %}
+{% if is_demo %}
+<div class="flash flash-info">이 결과는 데모용 가짜 사진으로 만든 것입니다 — 실제 공정 데이터가 아니에요.</div>
+{% endif %}
+<div class="card">
+  <div class="result-head">
+    <h1>처리 완료</h1>
+    <span class="run-tag">{{ customer or '-' }} / {{ material or '-' }} / {{ layer or '-' }} · {{ process or '-' }}</span>
+  </div>
+
+  {# 확인필요/스펙이탈/겹침/포인트 수 불일치를 실행 전체 합계 하나로 뭉뚱그리지
+     않고 Item별로 나눠서 보여줌(2026-08-12, 사용자 요청 - "이게 다 총 결과잖아,
+     아이템 항목별로 나눠서 분류하자"). 왼쪽 강조선(문제 있는 Item만 주황)은
+     "새 측정" 화면과 톤을 통일한 것. 이름은 Cpk 리포트와 같은 표시명
+     ("100 Pad CD"/"10 Line")을 씀 - 검증요약의 "Pad CD Item 1"과는 다른 이름이라
+     compute_item_breakdown이 같은 함수(display_item_name)로 통일해서 만듦. #}
+  <p class="run-summary">총 측정값 {{ total }} · Point {{ points }}개</p>
+  <div class="rail-list">
+    <div class="rail-row rail-head">
+      <span class="rail-name">Item</span>
+      <span class="rail-points">포인트 수</span>
+      <span class="rail-metrics">
+        <span class="rail-metric">확인필요</span>
+        <span class="rail-metric">스펙이탈</span>
+        <span class="rail-metric">겹침</span>
+        <span class="rail-metric">불일치</span>
+      </span>
+    </div>
+    <div class="rail-body">
+      {% for entry in item_breakdown or [] %}
+      <div class="rail-row{{ ' has-issue' if entry.flagged or entry.out_of_spec or entry.overlap or entry.mismatch else '' }}">
+        <span class="rail-name">{{ entry.name }}</span>
+        <span class="rail-points">{{ entry.points }}포인트</span>
+        <span class="rail-metrics">
+          <span class="rail-metric {{ 'cell-warn' if entry.flagged else 'cell-ok' }}">{{ entry.flagged }}</span>
+          <span class="rail-metric {{ 'cell-dash' if not entry.has_spec else ('cell-warn' if entry.out_of_spec else 'cell-ok') }}">{{ entry.out_of_spec if entry.has_spec else '–' }}</span>
+          <span class="rail-metric {{ 'cell-warn' if entry.overlap else 'cell-ok' }}">{{ entry.overlap }}</span>
+          <span class="rail-metric {{ 'cell-dash' if not entry.has_mismatch else ('cell-warn' if entry.mismatch else 'cell-ok') }}">{{ (1 if entry.mismatch else 0) if entry.has_mismatch else '–' }}</span>
+        </span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="buttons">
+    {# 데모는 로그인이 없어 @login_required인 download()로 보내면 로그인
+       화면으로 튕겨나감 - 데모의 핵심인 리포트를 못 받는 버그였음
+       (2026-08-18 최종 리뷰). is_demo면 로그인 없이 받을 수 있는
+       demo_download()로 대신 보냄. #}
+    <a class="btn-primary" href="{{ url_for('demo_download', run_id=run_id, filename='측정결과.xlsx') if is_demo else url_for('download', run_id=run_id, filename='측정결과.xlsx') }}">엑셀 다운로드</a>
+    <a class="btn-secondary" href="{{ url_for('demo_download', run_id=run_id, filename='측정결과.html') if is_demo else url_for('download', run_id=run_id, filename='측정결과.html') }}" target="_blank">HTML 리포트 보기</a>
+  </div>
+
+  {% if not is_demo %}
+  <div class="danger-zone">
+    {% if photos_deleted %}
+      <p class="deleted-note">✓ 원본 사진은 삭제됐어요 (엑셀/HTML 결과는 남아있음)</p>
+    {% else %}
+      <p>엑셀에서 "확인필요" 값을 다 확인하셨으면, 원본 사진을 지워서 서버에 안 남게 할 수 있어요.
+         {% if flagged %}(지금 확인필요 {{ flagged }}개가 있으니, 먼저 사진으로 확인해보시는 걸 권해요){% endif %}</p>
+      <form method="post" action="{{ url_for('delete_photos', run_id=run_id) }}"
+            onsubmit="return confirm('원본 사진을 삭제할까요? 엑셀/HTML 결과는 남아있지만, 사진은 되돌릴 수 없어요.');">
+        <button type="submit" class="btn-danger">원본 사진 삭제</button>
+      </form>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% if not is_demo %}
+<a class="new-link" href="{{ url_for('new_run') }}">+ 새 측정 시작하기</a>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}MetroPilot - 실행 기록{% endblock %}
+{% block body_class %}page-runs{% endblock %}
+
+{% block nav %}
+<a href="{{ url_for('home') }}">홈</a> &nbsp;|&nbsp; <a href="{{ url_for('logout') }}">로그아웃</a>
+{% endblock %}
+
+{% block content %}
+<h1>실행 기록</h1>
+{% if entries %}
+{# 표가 화면보다 넓어질 때 페이지 전체가 옆으로 밀리지 않도록 표만 감쌈 #}
+<div class="tablewrap">
+<table>
+  <thead>
+    <tr>
+      <th>시각</th><th>실행자</th><th>상태</th><th>고객/자재/Layer</th><th>공정</th><th>확인필요</th><th>비고</th><th></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for e in entries %}
+  <tr>
+    <td class="num">{{ e.when }}</td>
+    <!-- 이 기능(2026-08-04) 이전에 돌린 기록에는 실행자가 없어 '-'로 보임 -->
+    <td>{{ e.operator or '-' }}</td>
+    <td>
+      {% if e.status == 'done' %}<span class="badge badge-done">완료</span>
+      {% elif e.status == 'error' %}<span class="badge badge-error">실패</span>
+      {% elif e.status == 'processing' %}<span class="badge badge-processing">처리중</span>
+      {% else %}<span class="badge badge-unknown">알수없음</span>{% endif %}
+    </td>
+    <td>{{ e.customer or '-' }} / {{ e.material or '-' }} / {{ e.layer or '-' }}</td>
+    <td>{{ e.process or '-' }}</td>
+    <td class="num">
+      {% if e.status == 'done' %}
+        <span class="{{ 'warn' if e.flagged else '' }}">{{ e.flagged }}개</span>
+      {% else %}-{% endif %}
+    </td>
+    <td class="err-msg">{{ e.message if e.status == 'error' else '' }}</td>
+    <td class="links">
+      {% if e.status == 'done' %}<a href="{{ url_for('result', run_id=e.run_id) }}">결과</a>{% endif %}
+      {% if e.has_log %}<a href="{{ url_for('view_log', run_id=e.run_id) }}">로그</a>{% endif %}
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+  <p class="empty">아직 실행 기록이 없어요.</p>
+{% endif %}
+{% endblock %}

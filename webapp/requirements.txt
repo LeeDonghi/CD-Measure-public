@@ -1,0 +1,11 @@
+flask
+flask-login
+werkzeug
+gunicorn
+# 아래는 상위 폴더의 기존 데스크탑 프로그램(CD측정값_엑셀변환.py 등)을
+# 그대로 불러다 쓰기 때문에 웹 버전에도 똑같이 필요함.
+pillow
+numpy
+scipy
+pandas
+openpyxl

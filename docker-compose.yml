@@ -1,0 +1,52 @@
+# CD Measure 웹 버전 + Caddy(HTTPS 자동 처리)를 한 번에 띄우는 구성.
+# 실행: docker compose up -d --build
+# (반드시 프로젝트 최상위 폴더에서 실행 - Dockerfile이 상위 폴더 코드를 씀)
+#
+# 사전 준비: 이 폴더에 .env 파일을 만들고 아래 두 값을 채워둘 것(둘 다 git에 올리면
+# 안 되는 비밀값이라 .env는 .gitignore에 포함돼 있음):
+#   CD_MEASURE_SECRET_KEY=아무렇게나긴무작위문자열
+#   CD_MEASURE_DOMAIN=cd-measure.duckdns.org   (실제 배포 때만 - 로컬 테스트는 안 넣어도 됨)
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: webapp/Dockerfile
+    container_name: cd-measure
+    restart: unless-stopped
+    environment:
+      - CD_MEASURE_SECRET_KEY=${CD_MEASURE_SECRET_KEY}
+      # Caddy 뒤에 있으므로, Caddy가 보내는 실제 접속자 IP(X-Forwarded-For)를
+      # 신뢰하도록 켬 - 이게 없으면 로그인 잠금(brute force 방어)이 모든 접속자를
+      # "Caddy의 IP 하나"로 착각해서 엉뚱하게 동작함.
+      - CD_MEASURE_TRUST_PROXY=1
+      # 컨테이너는 기본이 UTC라, 이게 없으면 실행이력.csv와 측정로그의 시각이
+      # 한국 시각보다 9시간 빠르게(오후 2시 실행분이 05시로) 기록됨 - 2026-08-04 실제로 겪음.
+      # 서버(호스트) 시간대를 바꿔도 컨테이너 안에는 적용되지 않으므로 여기서 따로 지정.
+      - TZ=Asia/Seoul
+    volumes:
+      - ./data:/data
+    expose:
+      - "5000"
+    # 주의: ports를 안 씀(호스트에 5000번을 직접 안 엶) - 반드시 Caddy를 거쳐서만
+    # 접근되게 하려는 것. 디버깅용으로 직접 열고 싶으면 ports: ["5000:5000"] 추가.
+
+  caddy:
+    image: caddy:2
+    container_name: cd-measure-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - CD_MEASURE_DOMAIN=${CD_MEASURE_DOMAIN:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+
+volumes:
+  caddy_data:
+  caddy_config:

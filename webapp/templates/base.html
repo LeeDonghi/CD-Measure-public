@@ -1,0 +1,54 @@
+{# 모든 화면이 물려받는 뼈대.
+   화면마다 반복되던 <head>·상단 바를 여기 한 곳에만 두고,
+   각 화면은 아래 block들만 채워 넣음.
+
+   채울 수 있는 칸:
+     title       — 브라우저 탭에 뜨는 글자
+     body_class  — style.css의 화면별 규칙을 고르는 이름 (예: page-runs)
+     header      — 통째로 비우면 상단 바가 사라짐 (로그인 화면이 그렇게 씀)
+     brand_tag   — 이름표 옆에 붙는 화면 이름 (예: 접속 이력)
+     nav         — 상단 바 오른쪽 링크들
+     content     — 본문
+     scripts     — 화면 전용 자바스크립트 (</body> 직전에 들어감)
+#}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}MetroPilot{% endblock %}</title>
+  {# 워드마크 전용 글꼴 - "MetroPilot"·태그라인 로마자에만 씀(한글 본문은
+     그대로 기존 시스템 글꼴). 구글 폰트라 인터넷 끊기면 폴백(var(--font))으로
+     조용히 넘어감 - 필수 글꼴이 아니라 브랜드 장식이므로. #}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+</head>
+<body class="{% block body_class %}{% endblock %}">
+  {% block header %}
+  <header>
+    {# 이름표를 누르면 홈으로. MetroPilot 마크(사각 테두리 + 십자) -
+       currentColor라서 .brand-badge의 color(흰색)를 그대로 따라감. #}
+    <a class="brand" href="{{ url_for('home') }}">
+      <span class="brand-badge">
+        <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <rect x="2.8" y="2.8" width="26.4" height="26.4" stroke="currentColor" stroke-width="2.8"/>
+          <path d="M16 9.4v13.2M9.4 16h13.2" stroke="currentColor" stroke-width="3.2"/>
+        </svg>
+      </span>
+      <span class="brand-name"><span class="brand-metro">Metro</span><span class="brand-pilot">Pilot</span></span>
+      {% block brand_tag %}{% endblock %}
+    </a>
+    <span class="nav">{% block nav %}{% endblock %}</span>
+  </header>
+  {% endblock %}
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

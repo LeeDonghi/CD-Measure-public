@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block title %}MetroPilot - 로그{% endblock %}
+{% block body_class %}page-log{% endblock %}
+
+{% block nav %}
+<a href="{{ url_for('runs') }}">실행 기록</a> &nbsp;|&nbsp; <a href="{{ url_for('home') }}">홈</a>
+{% endblock %}
+
+{% block content %}
+<div class="filename">{{ filename }}</div>
+<pre>{{ content }}</pre>
+{% endblock %}

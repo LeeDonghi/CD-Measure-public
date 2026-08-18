@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+
+{% block title %}MetroPilot - 새 측정{% endblock %}
+{% block body_class %}page-new-run{% endblock %}
+
+{% block nav %}
+<a href="{{ url_for('home') }}">홈</a> &nbsp;|&nbsp; <a href="{{ url_for('logout') }}">로그아웃</a>
+{% endblock %}
+
+{% block content %}
+{% with messages = get_flashed_messages() %}
+  {% if messages %}{% for m in messages %}<div class="flash flash-error">{{ m }}</div>{% endfor %}{% endif %}
+{% endwith %}
+
+<h1>새 측정</h1>
+
+<form method="post" enctype="multipart/form-data" id="planForm">
+  <fieldset>
+    <legend>기본 정보</legend>
+    <div class="row">
+      <label>고객 <input type="text" name="customer"></label>
+      <label>자재 <input type="text" name="material"></label>
+      <label>Layer <input type="text" name="layer"></label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>공정</legend>
+    {# 라디오 동그라미 대신 눌린 칸으로 보이게 함. <input type=radio>는 그대로
+       두고 화면에서만 숨김 - 자바스크립트가 input[name=process]:checked로
+       지금 공정을 읽기 때문에 없애면 CD 이름 바꾸기·L/S 숨김이 다 깨짐. #}
+    <div class="segs">
+      <label class="seg"><input type="radio" name="process" value="RDL" checked onchange="onProcessChange()"><span>RDL</span></label>
+      <label class="seg"><input type="radio" name="process" value="PI" onchange="onProcessChange()"><span>PI</span></label>
+      <label class="seg"><input type="radio" name="process" value="Bump" onchange="onProcessChange()"><span>Bump</span></label>
+      <label class="seg"><input type="radio" name="process" value="Cu Post" onchange="onProcessChange()"><span>Cu Post</span></label>
+    </div>
+  </fieldset>
+
+  <fieldset id="ls-fieldset">
+    <legend>Line &amp; Space (RDL 전용)</legend>
+    <label>Item 개수
+      <select id="ls_count_select" class="narrow" onchange="onCountSelectChange('ls')">
+        <option value="0" selected>0</option>
+        <option value="1">1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="custom">직접 입력</option>
+      </select>
+    </label>
+    <input type="number" id="ls_count_custom" class="narrow hidden" min="0">
+    <button type="button" class="gen" onclick="buildRows('ls')">생성</button>
+    <div id="ls_rows"></div>
+    <div class="hint">Item마다 Line과 Space 중 <b>없는 쪽은 비워두세요</b>
+      (예: Item 1은 Line만, Item 2는 Space만). 둘 다 비우면 안 돼요.</div>
+    <input type="hidden" name="ls_count" id="ls_count_hidden" value="0">
+  </fieldset>
+
+  <fieldset>
+    <legend id="cd-legend">CD</legend>
+    <label>Item 개수
+      <select id="cd_count_select" class="narrow" onchange="onCountSelectChange('cd')">
+        <option value="0">0</option>
+        <option value="1" selected>1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="custom">직접 입력</option>
+      </select>
+    </label>
+    <input type="number" id="cd_count_custom" class="narrow hidden" min="0">
+    <button type="button" class="gen" onclick="buildRows('cd')">생성</button>
+    <div id="cd_rows"></div>
+    <input type="hidden" name="cd_count" id="cd_count_hidden" value="0">
+    <div class="hint">Tolerance는 R&amp;D Target 값으로 자동 계산돼요.</div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Overlay</legend>
+    <label>측정 포인트 수 <input type="number" name="overlay_points" class="narrow" value="0"></label>
+  </fieldset>
+
+  <fieldset>
+    <legend>사진 업로드</legend>
+    <!-- webkitdirectory: 데스크탑 버전(폴더 선택 대화상자)과 같은 사용 경험을
+         위해 파일 하나하나가 아니라 "폴더째" 고르는 창이 뜨게 함. 폴더 안의
+         사진이 전부(하위 폴더까지) 자동으로 포함됨.
+
+         브라우저가 그리는 "파일 선택 / 선택된 파일 없음" 문구는 CSS로 못 바꿔서,
+         진짜 입력칸은 화면에서 숨기고 <label>을 버튼처럼 보여줌. 고른 폴더 이름과
+         장수는 아래 자바스크립트가 채워 넣음. -->
+    <div class="filepick">
+      <input type="file" id="photos" name="photos" webkitdirectory directory multiple required>
+      <label class="pick-btn" for="photos">폴더 선택</label>
+      <span class="pick-name none" id="pickName">선택된 폴더 없음</span>
+    </div>
+    <div class="hint">사진이 들어있는 폴더를 선택하면 안의 사진이 전부 올라가요.</div>
+  </fieldset>
+
+  <button type="submit" class="submit" id="submitBtn">처리 시작</button>
+
+  <!-- 업로드 진행률.
+       사진 수백 MB를 보내는 동안 화면이 아무 반응 없이 멈춘 것처럼 보여서
+       "되고 있는 건가?" 싶다는 피드백을 받아 추가함(2026-08-04).
+       여기는 "내 컴퓨터 -> 서버"로 파일을 보내는 구간만 담당하고,
+       서버가 사진을 읽어 계산하는 진행률은 다음 화면(processing.html)이 맡음. -->
+  <div id="uploadBox" class="hidden">
+    <div class="bar"><div class="bar-fill" id="barFill"></div></div>
+    <div class="hint" id="uploadText">업로드 준비 중...</div>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // ── 고른 폴더 이름 보여주기 ────────────────────────────────────
+  // 숨긴 입력칸 대신 우리가 문구를 직접 채운다. webkitRelativePath는
+  // "Sample/1 (45).bmp"처럼 폴더명이 앞에 붙어서 오므로 첫 조각이 폴더 이름.
+  document.getElementById('photos').addEventListener('change', function () {
+    const el = document.getElementById('pickName');
+    const files = this.files;
+    if (!files || !files.length) {
+      el.textContent = '선택된 폴더 없음';
+      el.classList.add('none');
+      return;
+    }
+    const path = files[0].webkitRelativePath || '';
+    const folder = path.split('/')[0] || '선택한 폴더';
+    el.textContent = `${folder} · 파일 ${files.length}개`;
+    el.classList.remove('none');
+  });
+
+  // ── 업로드 진행률 ──────────────────────────────────────────────
+  // 폼을 그냥 제출하면 브라우저가 파일을 다 보낼 때까지 아무것도 안 보여줌.
+  // 그래서 직접 XHR로 보내고 upload.onprogress로 몇 %인지 표시한다.
+  // (fetch()는 업로드 진행률을 알려주지 않아서 일부러 옛 방식인 XHR을 씀)
+  document.getElementById('planForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    const form = this;
+    const btn = document.getElementById('submitBtn');
+    const box = document.getElementById('uploadBox');
+    const fill = document.getElementById('barFill');
+    const text = document.getElementById('uploadText');
+
+    btn.disabled = true;
+    btn.textContent = '업로드 중...';
+    box.classList.remove('hidden');
+
+    const mb = (bytes) => (bytes / 1048576).toFixed(1) + 'MB';
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', form.getAttribute('action') || window.location.pathname);
+    // 이 헤더를 보고 서버가 "화면 대신 run_id만 돌려주는" 방식으로 응답함
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+
+    xhr.upload.addEventListener('progress', function (ev) {
+      if (!ev.lengthComputable) return;
+      const pct = Math.round(ev.loaded / ev.total * 100);
+      fill.style.width = pct + '%';
+      text.textContent = `업로드 중 ${pct}% (${mb(ev.loaded)} / ${mb(ev.total)})`;
+    });
+
+    // 100%가 떠도 아직 끝이 아님 — 서버가 파일을 디스크에 저장하는 시간이 남아 있어서,
+    // 여기서 안내를 바꿔주지 않으면 100%인 채로 멈춘 것처럼 보임
+    xhr.upload.addEventListener('load', function () {
+      fill.style.width = '100%';
+      text.textContent = '서버가 사진을 저장하는 중입니다. 잠시만 기다려 주세요...';
+    });
+
+    xhr.addEventListener('load', function () {
+      let data = null;
+      try { data = JSON.parse(xhr.responseText); } catch (err) { /* JSON이 아니면 아래에서 처리 */ }
+      if (xhr.status === 200 && data && data.run_id) {
+        window.location.href = '/processing/' + data.run_id;
+      } else {
+        // 입력값 문제 등으로 서버가 폼을 되돌려준 경우 — 다시 불러와 안내 문구를 보여줌
+        window.location.href = xhr.responseURL || window.location.pathname;
+      }
+    });
+
+    xhr.addEventListener('error', function () {
+      text.textContent = '업로드에 실패했습니다. 네트워크를 확인하고 다시 시도해 주세요.';
+      btn.disabled = false;
+      btn.textContent = '처리 시작';
+    });
+
+    xhr.send(new FormData(form));
+  });
+
+  const CD_LABEL = {"RDL": "Pad CD", "PI": "Via CD", "Bump": "UBM CD", "Cu Post": "Cu Post CD"};
+
+  function onProcessChange() {
+    const process = document.querySelector('input[name=process]:checked').value;
+    document.getElementById('cd-legend').textContent = CD_LABEL[process];
+    const lsField = document.getElementById('ls-fieldset');
+    lsField.classList.toggle('hidden', process !== 'RDL');
+    if (process !== 'RDL') {
+      // RDL이 아니면 L/S는 계획에서 아예 빠져야 함(항목 자체가 없는 공정이므로)
+      document.getElementById('ls_count_select').value = '0';
+      document.getElementById('ls_count_custom').classList.add('hidden');
+      buildRows('ls');
+    }
+  }
+
+  // "Item 개수" 드롭다운에서 "직접 입력"을 고르면 옆에 숫자칸을 보여줌
+  // (2026-08-12) - 0~3은 대부분 그대로 고르고, 그보다 많을 때만 직접 치는
+  // 경우가 드물어서 기본은 드롭다운으로 실수(자릿수 밀림 등)를 줄임.
+  // 0/1/2/3을 고르면 그 자리에서 바로 칸이 생김(생성 버튼 안 눌러도 됨) -
+  // "직접 입력"은 아직 숫자를 안 쳤으니 여기서는 칸만 보여주고, 실제 생성은
+  // 값을 다 치고 생성 버튼을 눌러야 함.
+  function onCountSelectChange(kind) {
+    const sel = document.getElementById(kind + '_count_select');
+    const custom = document.getElementById(kind + '_count_custom');
+    const isCustom = sel.value === 'custom';
+    custom.classList.toggle('hidden', !isCustom);
+    if (isCustom) {
+      custom.focus();
+    } else {
+      custom.value = '';
+      buildRows(kind);
+    }
+  }
+
+  function getCount(kind) {
+    const sel = document.getElementById(kind + '_count_select');
+    if (sel.value === 'custom') {
+      return parseInt(document.getElementById(kind + '_count_custom').value || '0', 10);
+    }
+    return parseInt(sel.value, 10);
+  }
+
+  // kind: 'cd' 또는 'ls'. tkinter의 ItemListSection._build_rows와 같은 역할 -
+  // "Item 개수" 선택 후 이 버튼을 누르면 그 수만큼 입력칸이 새로 생김.
+  function buildRows(kind) {
+    const count = getCount(kind);
+    const container = document.getElementById(kind + '_rows');
+    container.innerHTML = '';
+    document.getElementById(kind + '_count_hidden').value = count;
+
+    for (let i = 1; i <= count; i++) {
+      const row = document.createElement('div');
+      row.className = 'row';
+      if (kind === 'cd') {
+        row.innerHTML = `<span class="label">Item ${i}</span>
+          <span class="field-label">포인트</span> <input type="number" name="cd_points_${i}" min="0" required>
+          <span class="field-label">Target</span> <input type="number" step="0.01" name="cd_target_${i}" required>`;
+      } else {
+        // Line/Space는 Item마다 독립이라 한쪽만 있을 수 있음. 그래서 둘 다
+        // required로 두면 안 됨 - 예전엔 required여서 "Space 없음"을 입력할
+        // 방법이 아예 없었고, 그 사진들이 CD로 잘못 분류됐음(2026-08-05).
+        row.innerHTML = `<span class="label">Item ${i}</span>
+          <span class="field-label">포인트</span> <input type="number" name="ls_points_${i}" min="0" required>
+          <span class="field-label">Line</span> <input type="number" step="0.01" name="ls_target_line_${i}" placeholder="없음">
+          <span class="field-label">Space</span> <input type="number" step="0.01" name="ls_target_space_${i}" placeholder="없음">`;
+      }
+      container.appendChild(row);
+    }
+  }
+
+  // 페이지 처음 열렸을 때 기본 CD Item 1개짜리 칸을 미리 만들어둠
+  buildRows('cd');
+</script>
+{% endblock %}

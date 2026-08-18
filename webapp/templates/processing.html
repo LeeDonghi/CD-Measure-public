@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}MetroPilot - 처리 중{% endblock %}
+{% block body_class %}page-processing{% endblock %}
+
+{# 처리가 끝날 때까지 기다리는 화면이라 다른 데로 새지 않도록 링크를 두지 않음 #}
+{% block nav %}{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h1 id="title">사진을 읽는 중이에요...</h1>
+  <div class="bar"><div class="bar-fill" id="bar"></div></div>
+  <p id="text">0 / {{ total }} 장</p>
+  <div class="error-box hidden" id="errorBox">
+    <p class="error" id="errorText"></p>
+    {% if is_demo %}
+      <a href="{{ url_for('demo_intro') }}">← 데모 소개로 돌아가기</a>
+    {% else %}
+      <a href="{{ url_for('new_run') }}">← 새 측정으로 돌아가기</a>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const runId = "{{ run_id }}";
+  const isDemo = {{ 'true' if is_demo else 'false' }};
+  const progressUrl = isDemo ? `/demo/progress/${runId}` : `/progress/${runId}`;
+  const resultUrl = isDemo ? `/demo/result/${runId}` : `/result/${runId}`;
+
+  async function poll() {
+    let data;
+    try {
+      const res = await fetch(progressUrl);
+      data = await res.json();
+    } catch (e) {
+      setTimeout(poll, 1500);  // 네트워크 순간 끊김 정도는 그냥 재시도
+      return;
+    }
+
+    if (data.status === 'processing') {
+      const total = data.total || 0;
+      const done = data.done || 0;
+      const pct = total ? Math.round(done / total * 100) : 0;
+      document.getElementById('bar').style.width = pct + '%';
+      document.getElementById('text').textContent = `${done} / ${total} 장 (${pct}%)`;
+      setTimeout(poll, 1000);
+    } else if (data.status === 'manual_input') {
+      if (isDemo) {
+        // 데모 폴더는 확인필요 0건으로 검증된 고정 폴더라 이 상태가 되면 안
+        // 됨 - 로그인 필요한 입력 화면으로 보내는 대신 에러로 처리한다.
+        document.getElementById('title').textContent = '데모 처리 중 문제가 생겼어요';
+        document.getElementById('errorText').textContent = '예상치 못한 상태가 됐어요. 다시 시도해주세요.';
+        document.getElementById('errorBox').classList.remove('hidden');
+      } else {
+        document.getElementById('text').textContent = '못 읽은 값이 있어요. 입력 화면으로 이동할게요...';
+        window.location.href = `/manual_input/${runId}`;
+      }
+    } else if (data.status === 'done') {
+      document.getElementById('bar').style.width = '100%';
+      document.getElementById('text').textContent = '완료! 결과로 이동할게요...';
+      window.location.href = resultUrl;
+    } else if (data.status === 'error') {
+      document.getElementById('title').textContent = '처리 중 문제가 생겼어요';
+      document.getElementById('errorText').textContent = data.message || '알 수 없는 오류';
+      document.getElementById('errorBox').classList.remove('hidden');
+    } else {
+      // 'unknown' - 아직 파일이 안 만들어졌을 수 있는 아주 짧은 순간, 재시도
+      setTimeout(poll, 1000);
+    }
+  }
+  poll();
+</script>
+{% endblock %}
