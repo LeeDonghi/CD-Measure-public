@@ -318,10 +318,13 @@ LS_LINE_X, LS_SPACE_X = 500, 760    # 두 측정선의 가로 위치(서로 떨�
 LS_TEXT_GAP = 55                # 라벨을 측정 구간 위쪽으로 이만큼 띄움
 
 
-def ls_photo(line_value, space_value, templates, annotate=True):
+def ls_photo(line_value, space_value, templates, annotate=True, space_band=None):
     """Line&Space 사진: 45° 모서리 배선 + 세로 측정선 2개(Line/Space 각각).
 
     annotate=False면 측정 표시·글자 없이 배경만 (측정 전 사진용).
+    space_band는 Space를 재는 구간을 일부러 옮겨보고 싶을 때만 준다
+    (케이스 스터디 6절 그림 — 마커가 밝기 경계에 걸치면 어떻게 되는지 보여주는 용도).
+    기본값 None이면 LS_SPACE_BAND를 그대로 쓰므로 기존 동작은 변하지 않는다.
     """
     img = Image.new('RGB', (IMG_W, IMG_H), LS_SPACE)
     d = ImageDraw.Draw(img)
@@ -358,7 +361,7 @@ def ls_photo(line_value, space_value, templates, annotate=True):
     if not annotate:
         return img
 
-    marks = [(LS_LINE_X, LS_LINE_BAND), (LS_SPACE_X, LS_SPACE_BAND)]
+    marks = [(LS_LINE_X, LS_LINE_BAND), (LS_SPACE_X, space_band or LS_SPACE_BAND)]
     lines = []
     for idx, (value, (mx, (y0, y1))) in enumerate(zip((line_value, space_value), marks)):
         draw_measure_mark(img, (mx, y0), (mx, y1))
@@ -509,6 +512,75 @@ def build_overlap_images(out_dir):
     for key, path in paths.items():
         print(f'  {key}: {path} ({os.path.getsize(path):,} bytes)')
     return paths
+
+
+# ── 케이스 스터디 6절: 밝기로 Line/Space를 가리는 장면 ──────────────
+#  마커가 어디에 놓이느냐로 밝기 차이가 어떻게 달라지는지 보여준다.
+#  ⚠️ 2026-08-20 실험으로 확인한 것(추측 금지):
+#     판정이 **반대로 뒤집히지는 않는다.** Space 마커가 어두운 띠 쪽으로
+#     갈수록 두 밝기가 가까워져 차이가 0에 수렴할 뿐이다
+#     (틈 한가운데 28.8 → 경계 9.8 → 띠 안쪽 0.1). Line 마커도 같은
+#     어두운 띠 위에 있어서 Space가 그보다 더 어두워질 수는 없기 때문.
+BRIGHT_OK_CENTER = 490      # 밝은 틈(440~540) 한가운데 - 정상 사례
+BRIGHT_EDGE_CENTER = 440    # 어두운 띠와 밝은 틈의 경계 - 무너지는 사례
+BRIGHT_CROP = (430, 340, 830, 570)   # 두 마커가 같이 보이는 영역(두 장 같은 자리)
+
+
+def _brightness_shot(center, templates, out_path, tmp_path):
+    """마커 중심을 center에 놓은 L&S 사진을 만들고, 실제 판독기·밝기 검증기로 확인.
+
+    반환: (판정, Line 밝기, Space 밝기)
+    """
+    import ls_brightness
+    import numpy as np
+    from PIL import Image as _Image
+
+    half = (LS_SPACE_BAND[1] - LS_SPACE_BAND[0]) // 2
+    img = ls_photo(9.4, 5.3, templates, space_band=(center - half, center + half))
+    img.save(tmp_path)
+
+    rows, _ = ocr_core.read_image_ex(tmp_path, templates)
+    if len(rows) < 2:
+        raise SystemExit(f'값을 2개 읽어야 하는데 {len(rows)}개만 읽혔습니다: {tmp_path}')
+    line_row, space_row = rows[0], rows[1]
+    verdict = ls_brightness.verify_ls_brightness(tmp_path, line_row, space_row)
+
+    # 캡션에 적을 밝기 숫자 — 검증기가 실제로 쓰는 함수를 그대로 호출한다
+    # (따로 계산하면 글의 숫자와 프로그램의 숫자가 갈라진다).
+    arr = np.array(_Image.open(tmp_path).convert('RGB'))
+    centers = ls_brightness._find_crosshair_centers(arr)
+    vals = []
+    for r in (line_row, space_row):
+        bx, by = min(centers, key=lambda c: (c[0] - r['pos_x']) ** 2 + (c[1] - r['pos_y']) ** 2)
+        vals.append(ls_brightness._sample_brightness(arr, bx, by))
+
+    img.crop(BRIGHT_CROP).save(out_path, optimize=True)
+    return verdict, vals[0], vals[1]
+
+
+def build_brightness_images(out_dir):
+    """6절 그림 2장을 만들고 밝기 검증기로 실제 결과를 확인한다."""
+    os.makedirs(out_dir, exist_ok=True)
+    templates = ocr_core.load_templates()
+    tmp = tempfile.gettempdir()
+    out = {}
+    for name, center in (('ls-bright-ok.png', BRIGHT_OK_CENTER),
+                         ('ls-bright-edge.png', BRIGHT_EDGE_CENTER)):
+        path = os.path.join(out_dir, name)
+        verdict, b_line, b_space = _brightness_shot(
+            center, templates, path, os.path.join(tmp, f'cd_{name}'))
+        gap = b_space - b_line
+        print(f'  {name}: 마커 중심 y={center} / 판정={verdict} / '
+              f'Line {b_line:.1f} vs Space {b_space:.1f} (차이 {gap:.1f}) '
+              f'/ {os.path.getsize(path):,} bytes')
+        out[name] = (verdict, b_line, b_space, gap)
+
+    ok_gap = out['ls-bright-ok.png'][3]
+    edge_gap = out['ls-bright-edge.png'][3]
+    if not ok_gap > edge_gap * 2:
+        print('  ⚠️ 경계 사례의 밝기 차이가 충분히 줄지 않았습니다 - '
+              'BRIGHT_EDGE_CENTER를 띠 쪽으로 더 옮기세요.')
+    return out
 
 
 # ══ 폴더 통째 만들기 ═════════════════════════════════════════════════
@@ -727,6 +799,10 @@ if __name__ == '__main__':
     # 소개 화면용 예시 사진만 따로 만드는 길 (저장소에 커밋하는 고정 자산)
     if len(sys.argv) > 2 and sys.argv[1] == '--overlap':
         build_overlap_images(sys.argv[2])
+        sys.exit(0)
+
+    if len(sys.argv) > 2 and sys.argv[1] == '--brightness':
+        build_brightness_images(sys.argv[2])
         sys.exit(0)
 
     if len(sys.argv) > 2 and sys.argv[1] == '--examples':

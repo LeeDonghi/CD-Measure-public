@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300" width="720" height="300" font-family="Malgun Gothic, Apple SD Gothic Neo, sans-serif" role="img" aria-label="값과 좌표의 직각삼각형 관계로 검산하는 방법">
+
+<!-- 왼쪽 칸: 통과 사례 (regression_baseline/Sample.json, CaptImg20260619093550.bmp 번호3) -->
+<rect x="0" y="0" width="348" height="300" rx="7" fill="#ffffff" stroke="#d8dee4"/>
+<text x="20" y="30" font-size="14.5" font-weight="700" fill="#16212b">통과 — 두 숫자가 서로 맞음</text>
+
+<!-- 사진에 찍힌 측정줄 원문 -->
+<rect x="20" y="44" width="308" height="30" rx="4" fill="#e7eef4" stroke="#cfdce6"/>
+<text x="32" y="64" font-size="13" fill="#1c3f5f" font-family="Consolas, monospace">3=7.2,  XY=(0.4, 7.2)</text>
+
+<!-- 직각삼각형: 밑변 X, 높이 Y, 빗변 = 값.
+     Y가 X의 18배라 실제 비율대로 그리면 거의 수직선이 된다 - 그대로 둔다.
+     비율을 예쁘게 고치면 "빗변 길이가 곧 값"이라는 그림의 주장이 거짓이 되기 때문. -->
+<line x1="70.3" y1="248" x2="78" y2="248" stroke="#8d99a4" stroke-width="1.6"/>
+<line x1="78" y1="248" x2="78" y2="110" stroke="#8d99a4" stroke-width="1.6"/>
+<line x1="70.3" y1="248" x2="78" y2="110" stroke="#1c3f5f" stroke-width="2.4"/>
+<rect x="72" y="242" width="6" height="6" fill="none" stroke="#8d99a4" stroke-width="1"/>
+<text x="52" y="266" font-size="12" fill="#5c6b78">X 0.4</text>
+<text x="86" y="184" font-size="12" fill="#5c6b78">Y 7.2</text>
+<text x="20" y="146" font-size="12" font-weight="700" fill="#1c3f5f">빗변</text>
+
+<!-- 검산 결과 -->
+<text x="150" y="140" font-size="12.5" fill="#5c6b78">√(0.4² + 7.2²)</text>
+<text x="150" y="164" font-size="15" font-weight="700" fill="#16212b">= 7.211</text>
+<line x1="150" y1="178" x2="328" y2="178" stroke="#d8dee4" stroke-width="1"/>
+<text x="150" y="200" font-size="12.5" fill="#5c6b78">사진에 찍힌 값 7.2</text>
+<text x="150" y="222" font-size="12.5" fill="#5c6b78">차이 0.011</text>
+<rect x="150" y="234" width="130" height="24" rx="4" fill="#e7eef4" stroke="#cfdce6"/>
+<text x="161" y="250" font-size="12.5" font-weight="700" fill="#1c3f5f">0.05 이내 → 통과</text>
+
+<!-- 오른쪽 칸: 걸린 사례 (regression_baseline/LS Sample.json, 8 (45).bmp 번호1) -->
+<rect x="372" y="0" width="348" height="300" rx="7" fill="#ffffff" stroke="#d8dee4"/>
+<text x="392" y="30" font-size="14.5" font-weight="700" fill="#16212b">걸림 — 두 숫자가 어긋남</text>
+
+<rect x="392" y="44" width="308" height="30" rx="4" fill="#e7eef4" stroke="#cfdce6"/>
+<text x="404" y="64" font-size="13" fill="#1c3f5f" font-family="Consolas, monospace">1=1.8,  XY=(0.2, 1.7)</text>
+
+<line x1="432" y1="248" x2="448" y2="248" stroke="#8d99a4" stroke-width="1.6"/>
+<line x1="448" y1="248" x2="448" y2="110" stroke="#8d99a4" stroke-width="1.6"/>
+<line x1="432" y1="248" x2="448" y2="110" stroke="#1c3f5f" stroke-width="2.4"/>
+<rect x="440" y="240" width="8" height="8" fill="none" stroke="#8d99a4" stroke-width="1"/>
+<text x="424" y="266" font-size="12" fill="#5c6b78">X 0.2</text>
+<text x="456" y="184" font-size="12" fill="#5c6b78">Y 1.7</text>
+<text x="392" y="146" font-size="12" font-weight="700" fill="#1c3f5f">빗변</text>
+
+<text x="522" y="140" font-size="12.5" fill="#5c6b78">√(0.2² + 1.7²)</text>
+<text x="522" y="164" font-size="15" font-weight="700" fill="#16212b">= 1.712</text>
+<line x1="522" y1="178" x2="700" y2="178" stroke="#d8dee4" stroke-width="1"/>
+<text x="522" y="200" font-size="12.5" fill="#5c6b78">사진에 찍힌 값 1.8</text>
+<text x="522" y="222" font-size="12.5" font-weight="700" fill="#16212b">차이 0.088</text>
+<rect x="522" y="234" width="150" height="24" rx="4" fill="#f6e9e6" stroke="#e3c9c2"/>
+<text x="533" y="250" font-size="12.5" font-weight="700" fill="#8a3f2e">0.05 초과 → 확인필요</text>
+
+<!-- 두 칸을 잇는 한 줄 설명 -->
+<text x="20" y="288" font-size="12" fill="#5c6b78">값과 좌표는 줄 안에서 따로 찍히고 OCR도 따로 읽는다 — 그래서 서로를 검산할 수 있다. (칸 안의 X:Y 비율은 실제와 같고, 칸끼리의 축척은 다름)</text>
+</svg>
