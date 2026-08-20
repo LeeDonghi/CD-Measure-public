@@ -30,6 +30,7 @@
 #    이 사진들은 SEM이 아니라 **광학 현미경** 사진이라 전체적으로 흐릿하고
 #    대비가 아주 낮다(전 채널 80~150 범위). 아래 색 상수는 전부 실측값이다.
 # ============================================================
+import json
 import math
 import os
 import sys
@@ -428,6 +429,88 @@ def overlay_photo(up, down, left, right, templates, annotate=True):
     return draw_texts(img, lines, templates)
 
 
+# ── 케이스 스터디용: 겹쳐 찍힌 라벨 재현 ──────────────────────────
+#  실제로 겪은 현상(계측기가 라벨 두 개를 픽셀 단위로 겹쳐 찍음)을 글로만
+#  설명하면 와닿지 않는다. 그렇다고 실제 사진을 공개 문서에 넣을 수는 없으므로
+#  같은 현상을 합성 이미지로 재현한다.
+#  ⚠️ 캡션에 "실제 사진"이라고 쓰면 안 된다 - 재현한 그림이다.
+OVERLAP_POS = {'좌': (700, 470), '우': (762, 470)}   # 두 라벨을 겹쳐 놓을 자리
+OVERLAP_CROP = (545, 432, 925, 508)                  # 겹친 부분 확대 범위
+NORMAL_CROP = (600, 246, 900, 300)                   # 비교용 정상 라벨(상)
+CROP_ZOOM = 3
+
+
+def overlap_example(templates, values=(1.2, 1.1, 1.3, 1.0)):
+    """겹쳐 찍힌 라벨을 재현한 사진과 확대 그림 두 장을 만든다.
+
+    배경·측정선은 보통 Overlay 사진과 같고, 좌/우 라벨만 서로 붙여 놓아
+    글자가 섞이게 한다. 반환: (전체 사진, 겹친 부분 확대, 정상 부분 확대)
+    """
+    up, down, left, right = values
+    bx0, by0, bx1, by1 = OVERLAY_BOX_RECT
+    vx0, vy0, vx1, vy1 = OVERLAY_CROSS_V
+    hx0, hy0, hx1, hy1 = OVERLAY_CROSS_H
+    mid_x, mid_y = (vx0 + vx1) // 2, (hy0 + hy1) // 2
+
+    img = overlay_photo(up, down, left, right, templates, annotate=False)
+    spans = {
+        '상': ((mid_x, by0 + 10), (mid_x, vy0)),
+        '하': ((mid_x, vy1), (mid_x, by1 - 10)),
+        '좌': ((bx0 + 5, mid_y), (hx0, mid_y)),
+        '우': ((hx1, mid_y), (bx1 - 5, mid_y)),
+    }
+    values_by_dir = {'상': up, '하': down, '좌': left, '우': right}
+    lines = []
+    for idx, direction in enumerate(('상', '하', '좌', '우')):
+        p0, p1 = spans[direction]
+        draw_measure_mark(img, p0, p1)
+        v = values_by_dir[direction]
+        on_y = direction in ('상', '하')
+        pos = OVERLAP_POS.get(direction, OVERLAY_TEXT_POS[direction])
+        lines.append((format_line(idx, v, 0.0 if on_y else v, v if on_y else 0.0), *pos))
+    full = draw_texts(img, lines, templates)
+
+    def _zoom(box):
+        w, h = box[2] - box[0], box[3] - box[1]
+        return full.crop(box).resize((w * CROP_ZOOM, h * CROP_ZOOM), Image.NEAREST)
+
+    return full, _zoom(OVERLAP_CROP), _zoom(NORMAL_CROP)
+
+
+def build_overlap_images(out_dir):
+    """케이스 스터디에 넣을 이미지 3장을 만들고, 실제 판독기로 결과를 확인한다.
+
+    확인까지 하는 이유: "겹치면 못 읽는다"고 글에 적으려면 그 그림이 정말로
+    판독에 실패해야 한다. 멀쩡히 읽히는 그림을 붙여놓고 설명만 그렇게 쓰면
+    문서가 거짓말을 하게 된다.
+    """
+    os.makedirs(out_dir, exist_ok=True)
+    full, overlap_crop, normal_crop = overlap_example(templates=ocr_core.load_templates())
+
+    width = EXAMPLE_WIDTH
+    height = int(IMG_H * width / IMG_W)
+    paths = {}
+    full_path = os.path.join(out_dir, 'overlap-full.jpg')
+    full.resize((width, height), Image.LANCZOS).save(full_path, quality=82, optimize=True)
+    paths['전체'] = full_path
+    for name, im in (('overlap-crop.png', overlap_crop), ('normal-crop.png', normal_crop)):
+        path = os.path.join(out_dir, name)
+        im.save(path, optimize=True)
+        paths[name] = path
+
+    # 재현이 실제로 "안 읽히는" 상태인지 원본 크기로 확인
+    tmp = os.path.join(tempfile.gettempdir(), 'cd_overlap_check.png')
+    full.save(tmp)
+    rows, line_count = ocr_core.read_image_ex(tmp, ocr_core.load_templates())
+    flagged = sum(1 for r in rows if r['확인필요'])
+    print(f'  재현 확인: 줄 수 {line_count} / 읽은 값 {len(rows)}개 / 확인필요 {flagged}건')
+    if len(rows) >= 4 and flagged == 0:
+        print('  ⚠️ 겹쳤는데도 4개가 멀쩡히 읽혔습니다 - OVERLAP_POS를 더 붙이세요.')
+    for key, path in paths.items():
+        print(f'  {key}: {path} ({os.path.getsize(path):,} bytes)')
+    return paths
+
+
 # ══ 폴더 통째 만들기 ═════════════════════════════════════════════════
 #  실제 폴더를 그대로 흉내낸다. 한 Point는 사진 3장(overlay/CD/L-S)이고,
 #  프로그램은 파일을 이름순(=시간순)으로 정렬한 뒤 3장씩 묶어 Point로 본다.
@@ -441,6 +524,89 @@ def overlay_photo(up, down, left, right, templates, annotate=True):
 DEMO_TARGETS = {'pad_cd': 100.0, 'line': 10.0, 'space': 20.0}
 DEMO_START = (2026, 8, 17, 9, 0, 0)     # 첫 사진 촬영 시각(파일명에 들어감)
 DEMO_INTERVAL_SEC = 37                  # 사진 사이 간격
+
+
+# ── 소개 화면(/demo)용 예시 사진 ────────────────────────────────────
+#  값은 Target 근처 대표값 하나로 고정한다(폴더 생성과 달리 난수를 쓰지 않음) —
+#  소개 화면 문구·스크린샷과 사진 속 숫자가 어긋나면 안 되기 때문.
+EXAMPLE_VALUES = {'cd': 100.2, 'line': 10.1, 'space': 20.0,
+                  'overlay': (1.2, 1.1, 1.3, 1.0)}
+EXAMPLE_WIDTH = 640          # 웹에 올릴 가로 크기(원본 1280의 절반)
+
+
+def example_annotations():
+    """예시 사진 위에 겹칠 주석의 좌표와 문구.
+
+    좌표는 전부 **원본 픽셀 기준**이고, 그림을 그릴 때 쓴 상수에서 가져온다.
+    눈대중으로 적으면 그림을 조금만 고쳐도 화살표가 엉뚱한 곳을 가리키게 된다.
+    '라벨'은 글자를 놓을 자리라 사진을 가리지 않는 빈 곳으로 사람이 고른 값이다.
+
+    화면에서 이 좌표를 쓰는 쪽은 webapp/templates/demo.html의 SVG이고,
+    viewBox가 (IMG_W, IMG_H)와 같아서 여기 적은 값이 그대로 들어간다.
+    """
+    ls_line_mid = (LS_LINE_BAND[0] + LS_LINE_BAND[1]) // 2
+    ls_space_mid = (LS_SPACE_BAND[0] + LS_SPACE_BAND[1]) // 2
+    return {
+        '크기': [IMG_W, IMG_H],
+        '사진': [
+            {'키': 'cd', '파일': 'cd.jpg', '제목': 'CD — 패드 하나의 폭',
+             '설명': '값이 한 줄로 표시됩니다.',
+             '주석': [
+                 # 측정선과 라벨은 세로로 37px밖에 안 떨어져 있어서, 둘 다
+                 # 중심을 가리키면 화살표 두 개가 한 점에 겹쳐 보인다(실제로
+                 # 겪음). 측정선은 오른쪽 X 표시를, 라벨은 글자 왼쪽 끝을
+                 # 가리켜 좌우로 갈라놓는다.
+                 {'대상': [CD_MEASURED_PAD[0] + CD_PAD_RADIUS, CD_MEASURED_PAD[1]],
+                  '라벨': [995, 850], '글': '측정 구간'},
+                 {'대상': [CD_TEXT_POS[0] - 130, CD_TEXT_POS[1]],
+                  '라벨': [120, 300], '글': '이 숫자를 읽습니다'},
+             ]},
+            {'키': 'ls', '파일': 'ls.jpg', '제목': 'Line & Space — 선과 틈',
+             '설명': '값이 두 줄로 표시됩니다.',
+             '주석': [
+                 {'대상': [LS_LINE_X, ls_line_mid], '라벨': [180, 200],
+                  '글': 'Line — 선폭'},
+                 {'대상': [LS_SPACE_X, ls_space_mid], '라벨': [1010, 790],
+                  '글': 'Space — 간격'},
+             ]},
+            {'키': 'overlay', '파일': 'overlay.jpg', '제목': 'Overlay — 정렬 오차',
+             '설명': '상·하·좌·우 각 방향의 값이 표시됩니다.',
+             '주석': [
+                 {'대상': list(OVERLAY_TEXT_POS['상']), '라벨': [1000, 140],
+                  '글': '네 방향 간격을 각각 측정'},
+                 {'대상': list(OVERLAY_TEXT_POS['좌']), '라벨': [130, 870],
+                  '글': '방향은 라벨의 위치로 구분'},
+             ]},
+        ],
+    }
+
+
+def build_example_shots(out_dir):
+    """소개 화면용 예시 사진 3장(JPEG)과 주석 좌표 파일을 만든다.
+
+    JPEG로 줄이는 이유: 원본 PNG는 장당 약 2MB(잡티 때문에 압축이 안 먹음)라
+    소개 화면 한 번에 6MB가 나간다. 이 사진들은 **판독에 쓰지 않고 보여주기만**
+    하므로 손실 압축이어도 상관없다(판독용은 여전히 원본 PNG).
+    """
+    os.makedirs(out_dir, exist_ok=True)
+    templates = ocr_core.load_templates()
+    shots = {
+        'cd': cd_photo(EXAMPLE_VALUES['cd'], templates),
+        'ls': ls_photo(EXAMPLE_VALUES['line'], EXAMPLE_VALUES['space'], templates),
+        'overlay': overlay_photo(*EXAMPLE_VALUES['overlay'], templates),
+    }
+    saved = {}
+    height = int(IMG_H * EXAMPLE_WIDTH / IMG_W)
+    for key, img in shots.items():
+        path = os.path.join(out_dir, f'{key}.jpg')
+        img.resize((EXAMPLE_WIDTH, height), Image.LANCZOS).save(
+            path, quality=82, optimize=True)
+        saved[key] = path
+    ann_path = os.path.join(out_dir, 'annotations.json')
+    with open(ann_path, 'w', encoding='utf-8') as f:
+        json.dump(example_annotations(), f, ensure_ascii=False, indent=2)
+    saved['annotations'] = ann_path
+    return saved
 
 
 def build_demo_folder(out_dir, points=9, seed=20260817):
@@ -480,6 +646,37 @@ def build_demo_folder(out_dir, points=9, seed=20260817):
         _save(ls_photo(ln, sp, templates))
 
     return made
+
+
+def build_preview_assets(folder):
+    """데모 사진 폴더 옆에 웹 표시용 미리보기(preview/)를 만든다.
+
+    - 축소 JPEG: 원본 PNG는 장당 약 2MB(잡티 때문에 압축이 안 먹음)라 결과
+      화면에서 한 포인트(3장)를 여는 데만 6MB가 나간다.
+    - boxes.json: 화면에 "여기를 읽었다"고 표시할 영역. 축소본을 만들려고
+      어차피 사진을 여는 김에 crop_boxes()를 부르는 것이라 좌표가 거의 공짜다.
+
+    ⚠️ manual_entry는 맨 위에서 tkinter를 불러온다. 서버 컨테이너에는
+    python3-tk가 들어 있으므로(webapp/Dockerfile) import가 실패하지 않는다.
+    """
+    from manual_entry import crop_boxes
+
+    out_dir = os.path.join(folder, 'preview')
+    os.makedirs(out_dir, exist_ok=True)
+    boxes = {}
+    height = int(IMG_H * EXAMPLE_WIDTH / IMG_W)
+    for name in sorted(os.listdir(folder)):
+        if not name.lower().endswith('.png'):
+            continue
+        path = os.path.join(folder, name)
+        Image.open(path).convert('RGB').resize(
+            (EXAMPLE_WIDTH, height), Image.LANCZOS).save(
+            os.path.join(out_dir, os.path.splitext(name)[0] + '.jpg'),
+            quality=82, optimize=True)
+        boxes[name] = [list(b) for b in crop_boxes(path)]
+    with open(os.path.join(out_dir, 'boxes.json'), 'w', encoding='utf-8') as f:
+        json.dump({'크기': [IMG_W, IMG_H], '박스': boxes}, f, ensure_ascii=False)
+    return len(boxes)
 
 
 def verify_demo_folder(paths, templates):
@@ -526,6 +723,17 @@ def _check(name, img, expect_count, templates):
 if __name__ == '__main__':
     import overlay_analysis
     import ls_brightness
+
+    # 소개 화면용 예시 사진만 따로 만드는 길 (저장소에 커밋하는 고정 자산)
+    if len(sys.argv) > 2 and sys.argv[1] == '--overlap':
+        build_overlap_images(sys.argv[2])
+        sys.exit(0)
+
+    if len(sys.argv) > 2 and sys.argv[1] == '--examples':
+        saved = build_example_shots(sys.argv[2])
+        for key, path in saved.items():
+            print(f'  {key}: {path} ({os.path.getsize(path):,} bytes)')
+        sys.exit(0)
 
     # 폴더 경로를 주면 데모 폴더를 통째로 만들고, 안 주면 사진 3종만 자체 점검함
     if len(sys.argv) > 1:

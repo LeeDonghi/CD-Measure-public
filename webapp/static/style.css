@@ -1039,3 +1039,251 @@ button.submit:disabled { background: #9aa6af; cursor: default; }
 .page-manual-input .hint.ok { color: var(--ok); }
 
 .page-manual-input .submit { margin-top: 4px; }
+
+/* ── 공개 데모 소개 화면 (page-demo) ────────────────────────────────
+   다른 화면과 같은 어휘를 쓴다: h1 17px, 카드 26px 안쪽 여백, 설명은 .hint,
+   숫자·강조에 새 색을 쓰지 않음. 예시 사진 3장이 한 줄에 들어가야 해서 폭만
+   기본 920px보다 조금 넓게 잡는다. */
+.page-demo main { max-width: 900px; }
+.page-demo h1 { font-size: 17px; margin: 0; }
+
+.demo-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.page-demo .run-tag {
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--surface-alt);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 3px 11px;
+  white-space: nowrap;
+}
+
+.page-demo .run-summary {
+  font-size: 12px;
+  color: var(--text-faint);
+  line-height: 1.6;
+  margin: 0 0 16px;
+}
+
+.demo-step { padding: 22px 26px 20px; margin-bottom: 12px; }
+
+/* 단계 번호는 색을 더 쓰지 않고 옅은 배경 하나로만 구분 (홈 메뉴와 같은 방식) */
+.demo-step-head { display: flex; align-items: center; gap: 9px; margin-bottom: 14px; }
+.demo-step-head h2 { font-size: 15px; margin: 0; }
+.demo-step-no {
+  font-size: 12px;
+  width: 21px;
+  height: 21px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary-soft-bg);
+  border: 1px solid var(--primary-soft-line);
+  color: var(--primary);
+  border-radius: 4px;
+}
+
+.demo-shots { display: flex; gap: 12px; flex-wrap: wrap; }
+.demo-shots .shot { flex: 1 1 240px; margin: 0; }
+/* 주석 SVG는 사진과 같은 상자만 덮어야 한다(설명글까지 덮으면 주석이 밀림) */
+.shot-frame {
+  position: relative;
+  line-height: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.demo-shots img { width: 100%; display: block; }
+.shot-note { position: absolute; inset: 0; width: 100%; height: 100%; }
+.shot-note line { stroke: #ff5b5b; stroke-width: 4; }
+.shot-note circle { fill: none; stroke: #ff5b5b; stroke-width: 4; }
+/* SVG 안에서는 상속이 브라우저마다 갈려서 본문 글꼴을 명시한다 */
+.shot-note text { font-size: 30px; fill: #fff; stroke: #000; stroke-width: 7;
+                  font-family: var(--font); }
+.demo-shots figcaption {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+.demo-plan { width: 100%; border-collapse: collapse; font-size: 13px; }
+.demo-plan th, .demo-plan td { border-top: 1px solid var(--line-soft); padding: 8px 0;
+                               text-align: left; font-weight: 400; }
+.demo-plan tr:first-child th, .demo-plan tr:first-child td { border-top: none; }
+.demo-plan th { width: 34%; color: var(--text-muted); }
+/* 셀 전체를 등폭으로 잡지 않는다 - 한글이 섞인 칸까지 걸려서 Consolas에 없는
+   글자만 다른 글꼴로 튄다. 앱 규칙대로 숫자에만 .num을 붙인다(style.css 229줄). */
+.demo-plan-pt { width: 22%; text-align: right; color: var(--text-faint); }
+
+.page-demo .demo-step .hint { margin-top: 12px; }
+.demo-step form { max-width: 320px; }
+.page-demo .demo-quota { margin-top: 8px; }
+
+/* ── 데모 결과 — Point별 사진과 읽은 값 ───────────────────────────── */
+.pt-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 14px; }
+.pt-tab { padding: 6px 12px; font-size: 13px; cursor: pointer;
+          border: 1px solid var(--line); border-radius: 6px; background: none; }
+.pt-tab.on { font-weight: 700; border-color: var(--accent, #2f6feb); }
+.pt-panel { display: none; }
+.pt-panel.on { display: block; }
+.pt-shot { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 16px;
+           flex-wrap: wrap; }
+.pt-shot .shot-frame { flex: 1 1 320px; }
+.pt-shot img { width: 100%; display: block; border-radius: 6px; }
+/* 읽은 영역 네모 — 사진 위에 겹침 */
+.pt-shot .shot-note rect { fill: none; stroke: #38d17a; stroke-width: 5; }
+.pt-values { flex: 1 1 300px; border-collapse: collapse; font-size: 14px; }
+.pt-values th, .pt-values td { border-top: 1px solid var(--line); padding: 6px 8px;
+                               text-align: left; }
+.pt-values tr.out td strong { color: #c0392b; }
+
+/* ── 케이스 스터디 (page-case) ───────────────────────────────────────
+   긴 글을 읽는 화면이라 다른 화면과 규칙이 다르다. 마크다운에서 변환된
+   태그라 클래스를 못 붙이므로 태그로 지정한다.
+
+   2026-08-20 가독성 손봄. 처음엔 본문 15px에 강조·코드가 그대로 튀어나와
+   글이 얼룩덜룩했음(<strong> 105개 / <p> 89개 — 문단마다 굵은 글씨가 하나
+   이상이라 강조가 강조 구실을 못 함, <code> 75개가 회색 칩으로 깔림).
+   글은 그대로 두고 표시 무게만 낮췄다. */
+.page-case main { max-width: 700px; }
+
+.page-case h1 {
+  font-size: 25px;
+  line-height: 1.45;
+  margin: 0 0 22px;
+  word-break: keep-all;      /* 한글은 단어 중간에서 끊으면 안 읽힌다 */
+}
+
+/* 목차 - 절이 12개라 없으면 어디쯤 왔는지 감이 안 온다 */
+.case-toc {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin-bottom: 40px;
+  font-size: 13.5px;
+  line-height: 1.9;
+}
+.case-toc-label {
+  display: block;
+  font-size: 11.5px;
+  letter-spacing: .06em;
+  color: var(--text-faint);
+  margin-bottom: 6px;
+}
+/* 목차가 첫 화면을 통째로 차지하면 본문이 화면 밖으로 밀린다(실제로 그랬음)
+   - 불릿을 빼고 2열로 접어 높이를 절반으로 */
+.case-toc ul { margin: 0; padding: 0; list-style: none;
+               columns: 2; column-gap: 28px; }
+.case-toc li { break-inside: avoid; }
+.case-toc a { color: var(--text-muted); text-decoration: none; }
+.case-toc a:hover { color: var(--primary); }
+
+.case-body {
+  font-size: 16px;
+  line-height: 1.9;
+  /* 한글 줄바꿈: 단어 단위로 끊고, 마지막 줄에 한 단어만 남지 않게 */
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  text-wrap: pretty;
+}
+
+.case-body p { margin: 0 0 18px; }
+
+/* 절 제목은 위 여백으로 구분한다(마크다운의 --- 구분선은 빌드에서 뺐음) */
+.case-body h2 {
+  font-size: 21px;
+  line-height: 1.4;
+  margin: 56px 0 18px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+.case-body h3 {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 36px 0 12px;
+  color: var(--primary);
+}
+
+.case-body ul, .case-body ol { padding-left: 22px; margin: 0 0 20px; }
+/* 목록은 본문보다 촘촘해야 '묶음'으로 보인다. 문단과 같은 간격을 주면
+   항목이 각각 따로 노는 문단처럼 읽힌다. */
+.case-body li { margin-bottom: 5px; line-height: 1.75; }
+.case-body a { color: var(--primary); }
+
+/* 강조는 굵기만 한 단계 올린다. 700 + 검정으로 두면 문단마다 있는 강조가
+   전부 소리를 질러서 정작 중요한 데가 안 보인다. */
+.case-body strong { font-weight: 600; }
+
+/* 코드 조각도 배경 칩을 빼고 색으로만 구분 - 75개가 회색 블록으로 깔리면
+   글이 얼룩덜룩해진다. 블록 코드(<pre>)는 그대로 상자를 유지. */
+.case-body code {
+  font-family: var(--mono);
+  font-size: .9em;
+  color: var(--primary);
+}
+.case-body pre {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--primary);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  margin: 0 0 20px;
+  overflow-x: auto;
+  font-size: 13.5px;
+  line-height: 1.7;
+}
+.case-body pre code { color: var(--text); font-size: 1em; }
+
+.case-body blockquote {
+  margin: 0 0 24px;
+  padding: 14px 18px;
+  background: var(--primary-soft-bg);
+  border: 1px solid var(--primary-soft-line);
+  border-radius: var(--radius);
+  font-size: 15px;
+}
+.case-body blockquote p:last-child { margin-bottom: 0; }
+
+.case-body img {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  margin: 4px 0 0;
+}
+
+/* 이미지 아래 설명(<sub>)은 한 줄짜리 각주처럼 보이게 - 마크다운에서
+   나오는 태그라 이것 말고 붙일 자리가 없다 */
+.case-body sub {
+  display: block;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--text-faint);
+  vertical-align: baseline;
+  padding: 8px 2px 0;
+}
+
+.case-body table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14.5px;
+  margin: 0 0 20px;
+  display: block;
+  overflow-x: auto;
+}
+.case-body th, .case-body td {
+  border-top: 1px solid var(--line-soft);
+  padding: 9px 12px;
+  text-align: left;
+  vertical-align: top;
+}
+.case-body th { background: var(--surface-alt); font-weight: 600; white-space: nowrap; }

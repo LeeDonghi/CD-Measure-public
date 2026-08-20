@@ -16,6 +16,7 @@ import dataclasses
 import glob
 import importlib
 import json
+import math
 import os
 import shutil
 import sys
@@ -117,7 +118,7 @@ def _ensure_demo_source():
     if os.path.isdir(DEMO_SOURCE_DIR) and os.listdir(DEMO_SOURCE_DIR):
         return DEMO_SOURCE_DIR
 
-    from scripts.make_demo_images import build_demo_folder
+    from scripts.make_demo_images import build_demo_folder, build_preview_assets
 
     # 워커마다 고유한 임시 폴더를 만듦 - 동시 접속 시 삭제 경합 방지
     parent_dir = os.path.dirname(DEMO_SOURCE_DIR)
@@ -131,6 +132,11 @@ def _ensure_demo_source():
     # 임시 폴더를 지운 뒤 그대로 다시 던짐.
     try:
         build_demo_folder(tmp_dir)
+        # 미리보기(preview/)도 반드시 임시 폴더 안에서 완성해야 한다. os.replace()
+        # 뒤에 만들면 원자성이 깨져서, 그 사이에 끊겼을 때 '사진은 있는데 미리보기만
+        # 없는' 반쪽 폴더가 영구히 고착된다(_ensure_demo_source는 폴더가 있으면
+        # 그냥 반환하므로 다시 만들 기회가 없다).
+        build_preview_assets(tmp_dir)
     except Exception:
         shutil.rmtree(tmp_dir, ignore_errors=True)
         raise
@@ -164,7 +170,7 @@ app.secret_key = os.environ.get('CD_MEASURE_SECRET_KEY') or os.urandom(24)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
-login_manager.login_message = '로그인이 필요해요.'
+login_manager.login_message = '로그인이 필요합니다.'
 
 
 class User(UserMixin):
@@ -321,7 +327,7 @@ def login():
         locked, remaining = check_login_lockout(ip)
         if locked:
             minutes = remaining // 60 + 1
-            flash(f'로그인 시도가 너무 많아요. {minutes}분 뒤 다시 시도해주세요.')
+            flash(f'로그인 시도가 너무 많습니다. {minutes}분 뒤 다시 시도해 주세요.')
             return render_template('login.html')
 
         username = request.form.get('username', '').strip()
@@ -335,7 +341,7 @@ def login():
         # 실패도 남김 — 잠금용 login_attempts.json은 IP만 담고 시간이 지나면
         # 지워지므로, "누구 아이디로 시도했는지"는 여기에만 남는다.
         activity_log.record(username, '로그인실패', ip)
-        flash('아이디 또는 비밀번호가 틀렸어요.')
+        flash('아이디 또는 비밀번호가 올바르지 않습니다.')
 
     return render_template('login.html')
 
@@ -385,7 +391,7 @@ def change_password():
         new = request.form.get('new_password', '')
         new2 = request.form.get('new_password2', '')
         if new != new2:
-            flash('새 비밀번호 두 개가 서로 달라요.')
+            flash('새 비밀번호 두 개가 서로 다릅니다.')
         else:
             ok, message = user_store.change_password(current_user.id, old, new)
             flash(message)
@@ -527,6 +533,8 @@ def _write_failure_log(run_dir, plan, files, message, detail_lines=None):
 # 폴링용이 아니라 "폼 제출이 오면 여기서 이어서 처리한다"는 내부용 데이터라
 # 따로 둠. 처리가 끝나면 지움(더는 필요 없는 임시 파일).
 MANUAL_STATE_FILE = '.manual_state.json'
+# 데모 결과 화면이 '이 사진에서 이 값을 읽었다'를 보여줄 때 쓰는 파일.
+PHOTO_READ_FILE = '사진별판독.json'
 
 
 def _manual_crop_dir(run_dir, idx):
@@ -599,7 +607,7 @@ def _finalize_and_save(run_dir, plan, files, all_data, overlay_summaries, log,
     meta = dict(_run_meta(plan), operator=operator)
 
     if not all_data:
-        message = '어떤 사진에서도 측정값을 읽지 못했어요.'
+        message = '어떤 사진에서도 측정값을 읽지 못했습니다.'
         _write_failure_log(run_dir, plan, files, message, log)
         write_progress(run_dir, status='error', message=message, **meta)
         return
@@ -637,6 +645,28 @@ def _finalize_and_save(run_dir, plan, files, all_data, overlay_summaries, log,
     # 나눠서 보여줌(2026-08-12) - 위 flagged/out_of_spec/unread/mismatch_item은
     # 실행이력.csv·완료 안내에 계속 쓰이므로 그대로 둠.
     item_breakdown = compute_item_breakdown(all_data, plan, core.unread_by_file(log))
+
+    # 데모 결과 화면이 "이 사진에서 이 값을 읽었다"를 보여주려면 파일 단위로 묶은
+    # 값이 필요하다. df에 이미 다 들어 있어 새로 계산할 것은 없다.
+    # ⚠️ 미리 계산해 둔 값을 쓰면 안 된다 — 판독이 깨져도 화면은 멀쩡해 보인다.
+    # 데모에서만 저장: 실제 실행의 결과 폴더 구조를 지금 건드릴 이유가 없음.
+    if category == '데모':
+        def _clean(v):
+            # Target을 못 찾은 행은 NaN이다. 그대로 두면 화면에 'nan'이 뜨고
+            # json.dump도 표준이 아닌 NaN 리터럴을 쓴다.
+            return None if isinstance(v, float) and math.isnan(v) else v
+
+        by_file = {}
+        for row in df.to_dict('records'):
+            by_file.setdefault(row['파일명'], []).append({
+                'Point': _clean(row['Point']), '항목': row['항목'],
+                '번호': _clean(row['번호']), '측정값': _clean(row['측정값(um)']),
+                'Target': _clean(row['Target']), 'USL': _clean(row['USL']),
+                'LSL': _clean(row['LSL']), '스펙이탈': row['스펙이탈'],
+                '방향': row['방향'],
+            })
+        with open(os.path.join(run_dir, PHOTO_READ_FILE), 'w', encoding='utf-8') as f:
+            json.dump({'파일': by_file}, f, ensure_ascii=False)
 
     report_path = os.path.join(run_dir, '측정결과.html')
     core.build_report(df, overlay_df, stats_rows, plan, report_path, item_breakdown=item_breakdown)
@@ -699,7 +729,7 @@ def run_processing(run_dir, files, plan, operator='', category=''):
         # 무조건 진행률 파일에 에러로 남기고, 원인을 나중에 코드에서 찾을 수
         # 있게 traceback까지 로그 파일에 남김(사용자가 "오류 부분을 수정하고
         # 프로그램 업데이트"하려면 이게 있어야 함 - 메시지 한 줄로는 부족함).
-        message = f'처리 중 오류가 발생했어요: {e}'
+        message = f'처리 중 오류가 발생했습니다: {e}'
         _write_failure_log(run_dir, plan, files, message, traceback.format_exc().splitlines())
         write_progress(run_dir, status='error', message=message, **meta)
 
@@ -713,12 +743,12 @@ def new_run():
     try:
         plan = build_plan_from_form(request.form)
     except (ValueError, KeyError):
-        flash('입력값을 다시 확인해주세요 (숫자 칸에 숫자가 아닌 값이 있을 수 있어요).')
+        flash('입력값을 다시 확인해 주세요 (숫자 칸에 숫자가 아닌 값이 있을 수 있습니다).')
         return redirect(url_for('new_run'))
 
     uploaded = [f for f in request.files.getlist('photos') if f and f.filename]
     if not uploaded:
-        flash('사진을 최소 1장 이상 올려주세요.')
+        flash('사진을 1장 이상 올려 주세요.')
         return redirect(url_for('new_run'))
 
     # 실행마다 폴더를 새로 나눔(동시에 여러 명이 써도 서로 안 섞이도록)
@@ -739,7 +769,7 @@ def new_run():
     files = sorted(set(files), key=core.natural_sort_key)
 
     if not files:
-        flash(f'올린 파일 중에 읽을 수 있는 사진이 없어요 ({" / ".join(core.IMAGE_EXTENSIONS)} 형식만 가능).')
+        flash(f'올린 파일 중 읽을 수 있는 사진이 없습니다 ({" / ".join(core.IMAGE_EXTENSIONS)} 형식만 가능).')
         return redirect(url_for('new_run'))
 
     write_progress(run_dir, status='processing', done=0, total=len(files),
@@ -783,6 +813,29 @@ def result(run_id):
 # ------------------------------------------------------------
 #  공개 데모 (로그인 없이 체험)
 # ------------------------------------------------------------
+def _read_json(path):
+    """없거나 깨졌으면 None. 화면이 그 구역을 감추는 근거가 된다."""
+    try:
+        with open(path, encoding='utf-8') as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+# 소개 화면 예시 사진의 주석 좌표. 저장소에 커밋된 고정 파일이라 프로세스마다
+# 한 번만 읽어 캐시한다. 파일이 없으면 None -> 템플릿이 사진 구역을 통째로
+# 감춘다(사진 없이 화살표만 뜨는 상태를 만들지 않기 위함).
+_example_cache = None
+
+
+def _demo_examples():
+    global _example_cache
+    if _example_cache is None:
+        _example_cache = _read_json(
+            os.path.join(app.static_folder, 'demo', 'annotations.json')) or False
+    return _example_cache or None
+
+
 def _build_demo_plan():
     """데모 사진의 실제 값 기준(scripts/make_demo_images.DEMO_TARGETS)과
        반드시 같아야 함: RDL / Pad CD 100 / Line 10 / Space 20 / Overlay."""
@@ -809,12 +862,24 @@ def _is_demo_run_id(run_id):
     return run_id.startswith('demo_') and secure_filename(run_id) == run_id
 
 
+@app.route('/about')
+def about():
+    """케이스 스터디(어떻게 만들었나). 로그인 없이 열리는 경로다.
+
+    내용은 docs/case-study.md 하나가 원본이고, scripts/build_case_study.py 가
+    배포 전에 템플릿으로 변환해 둔다 - 설명하는 글이 여러 벌로 갈라지지 않게
+    하려는 것. 이 라우트는 고정된 글만 내보내므로 실행 데이터에 닿지 않는다.
+    """
+    return render_template('case_study.html')
+
+
 @app.route('/demo')
 def demo_intro():
     _ensure_demo_source()
     limited, count = check_demo_limit(_client_ip())
     return render_template('demo.html', limited=limited, count=count,
-                           limit=DEMO_DAILY_LIMIT)
+                           limit=DEMO_DAILY_LIMIT,
+                           examples=_demo_examples(), plan=_build_demo_plan())
 
 
 @app.route('/demo/start', methods=['POST'])
@@ -822,7 +887,7 @@ def demo_start():
     ip = _client_ip()
     limited, _ = check_demo_limit(ip)
     if limited:
-        flash(f'오늘 데모 실행 횟수({DEMO_DAILY_LIMIT}회)를 다 썼어요. 내일 다시 시도해주세요.')
+        flash(f'오늘 데모 실행 횟수({DEMO_DAILY_LIMIT}회)를 모두 사용했습니다. 내일 다시 시도해 주세요.')
         return redirect(url_for('demo_intro'))
 
     # 카운트를 최대한 일찍 올림(check-then-copy-then-record라 원래
@@ -838,7 +903,10 @@ def demo_start():
     run_dir = os.path.join(UPLOAD_ROOT, run_id)
     os.makedirs(run_dir, exist_ok=True)
     for name in os.listdir(source_dir):
-        shutil.copy2(os.path.join(source_dir, name), os.path.join(run_dir, name))
+        src = os.path.join(source_dir, name)
+        if not os.path.isfile(src):
+            continue          # preview/ 같은 하위 폴더는 실행 폴더로 안 옮김
+        shutil.copy2(src, os.path.join(run_dir, name))
 
     files = []
     for ext in core.IMAGE_EXTENSIONS:
@@ -886,8 +954,28 @@ def demo_result(run_id):
     state = read_progress(run_dir)
     if not state or state.get('status') != 'done':
         return redirect(url_for('demo_processing_page', run_id=run_id))
+    # 사진 구역에 필요한 두 가지. 하나라도 없으면 템플릿이 구역을 통째로 감춘다
+    # (옛 실행 폴더에는 사진별판독.json이 없다 — 값 없는 사진만 뜨면 고장으로 보임).
+    photo_reads = _read_json(os.path.join(run_dir, PHOTO_READ_FILE))
+    boxes = _read_json(os.path.join(DEMO_SOURCE_DIR, 'preview', 'boxes.json'))
     return render_template('result.html', run_id=run_id, username=None,
-                           is_demo=True, **state)
+                           is_demo=True, photo_reads=photo_reads, boxes=boxes,
+                           **state)
+
+
+@app.route('/demo/photo/<filename>')
+def demo_photo(filename):
+    """데모 사진 미리보기(축소 JPEG). 로그인 없이 열리는 경로다.
+
+    run_id를 아예 받지 않는 것이 방어의 핵심 — 미리보기는 실행과 무관한 고정
+    자산이라, 이 라우트에서 실행 데이터(업로드 폴더)에 닿을 경로 자체가 없다.
+    """
+    if secure_filename(filename) != filename or not filename.endswith('.jpg'):
+        abort(404)
+    preview_dir = os.path.join(DEMO_SOURCE_DIR, 'preview')
+    if not os.path.isfile(os.path.join(preview_dir, filename)):
+        abort(404)
+    return send_from_directory(preview_dir, filename)
 
 
 @app.route('/processing/<run_id>')
@@ -996,13 +1084,13 @@ def manual_input_submit(run_id):
             if not val and not off:
                 continue  # 비워두면 그 줄은 포기한 것으로 봄(데스크탑과 같은 원칙)
             if not val:
-                flash(f'{item["name"]}: 값 칸이 비어 있어요.')
+                flash(f'{item["name"]}: 값 칸이 비어 있습니다.')
                 return redirect(url_for('manual_input_form', run_id=run_id))
             try:
                 new_rows.append(build_manual_row(
                     j, float(val), float(off) if off else 0.0, direction))
             except ValueError:
-                flash(f'{item["name"]}: 숫자만 입력해주세요.')
+                flash(f'{item["name"]}: 숫자만 입력해 주세요.')
                 return redirect(url_for('manual_input_form', run_id=run_id))
         if new_rows:
             manual_by_path[path] = new_rows
@@ -1133,7 +1221,7 @@ def delete_photos(run_id):
     state['photos_deleted'] = True
     write_progress(run_dir, **state)
     activity_log.record(current_user.id, '사진삭제', _client_ip(), f'{run_id} / {deleted}장')
-    flash(f'원본 사진 {deleted}장을 삭제했어요.')
+    flash(f'원본 사진 {deleted}장을 삭제했습니다.')
     return redirect(url_for('result', run_id=run_id))
 
 

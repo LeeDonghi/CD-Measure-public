@@ -1,37 +1,110 @@
 {% extends "base.html" %}
 
-{% block title %}MetroPilot - 데모{% endblock %}
-{% block body_class %}page-login{% endblock %}
-{% block header %}{% endblock %}
+{% block title %}MetroPilot - 공개 데모{% endblock %}
+{# 다른 화면과 같은 뼈대(상단 바 + main + 카드)를 쓴다. 구성은 이 프로그램이
+   실제로 하는 순서 그대로 - 사진을 받고 → 값을 읽어 Target에 맞추고 → 리포트를
+   낸다. 처음에는 로그인 화면 레이아웃(page-login, width:288px 고정)을 빌려 써서
+   휴대폰처럼 좁게 나왔고, 그다음엔 제목을 32px로 키워 다른 화면들과 따로 놀았음
+   (2026-08-19 사용자 지적 두 번). 이 화면의 글자 크기·카드·색은 전부 기존
+   화면들에서 그대로 가져온 것이다. #}
+{% block body_class %}page-demo{% endblock %}
+{% block brand_tag %}<span class="brand-tag">공개 데모</span>{% endblock %}
+
+{% block nav %}
+<a href="{{ url_for('login') }}">로그인</a>
+{% endblock %}
 
 {% block content %}
-<div class="box">
-  <div class="brand">
-    <span class="brand-badge">
-      <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
-        <rect x="2.8" y="2.8" width="26.4" height="26.4" stroke="currentColor" stroke-width="2.8"/>
-        <path d="M16 9.4v13.2M9.4 16h13.2" stroke="currentColor" stroke-width="3.2"/>
-      </svg>
-    </span>
-    <span class="brand-name"><span class="brand-metro">Metro</span><span class="brand-pilot">Pilot</span></span>
+{% with messages = get_flashed_messages() %}
+  {% if messages %}{% for m in messages %}<div class="flash flash-info">{{ m }}</div>{% endfor %}{% endif %}
+{% endwith %}
+
+<div class="demo-head">
+  <h1>로그인 없이 체험해 보기</h1>
+  <span class="run-tag">예시 이미지 <span class="num">36</span>장 · 약 <span class="num">10</span>초</span>
+</div>
+<p class="run-summary">이 프로그램은 계측 장비가 저장한 이미지에서 측정값을 읽어 결과를 정리합니다.
+   아래 <span class="num">3</span>단계는 전체 처리 과정이며, 데모에서도 동일한 분석 로직을 사용합니다.</p>
+
+<div class="card demo-step">
+  <div class="demo-step-head">
+    <span class="demo-step-no num">1</span>
+    <h2>사진에서 측정값을 읽습니다</h2>
   </div>
-  <p class="tagline">공개 데모 · 로그인 없이 체험</p>
-  {% with messages = get_flashed_messages() %}
-    {% if messages %}
-      {% for m in messages %}<div class="error">{{ m }}</div>{% endfor %}
-    {% endif %}
-  {% endwith %}
-  <p class="foot">
-    가짜로 만든 계측기 사진 36장을 실제 파이프라인(OCR·매칭·Cpk 계산)으로
-    처리해서 결과 화면까지 보여드려요. 실제 공정 데이터가 아니에요.
-  </p>
+  {% if examples %}
+  <div class="demo-shots">
+    {% for shot in examples['사진'] %}
+    <figure class="shot">
+      {# 주석 SVG는 '사진과 정확히 같은 상자'를 덮어야 한다. figure를 기준으로
+         잡으면 아래 figcaption 높이까지 포함돼 주석이 밀리고 늘어난다. #}
+      <div class="shot-frame">
+        <img src="{{ url_for('static', filename='demo/' + shot['파일']) }}"
+             alt="{{ shot['제목'] }} 예시 이미지">
+        {# viewBox가 원본 사진 크기와 같으므로 원본 픽셀 좌표를 그대로 쓴다.
+           화면이 커지고 작아져도 화살표가 늘 같은 자리를 가리킨다. #}
+        <svg class="shot-note" viewBox="0 0 {{ examples['크기'][0] }} {{ examples['크기'][1] }}"
+             preserveAspectRatio="none" aria-hidden="true">
+          {% for a in shot['주석'] %}
+          <line x1="{{ a['라벨'][0] }}" y1="{{ a['라벨'][1] }}"
+                x2="{{ a['대상'][0] }}" y2="{{ a['대상'][1] }}"/>
+          <circle cx="{{ a['대상'][0] }}" cy="{{ a['대상'][1] }}" r="16"/>
+          {# paint-order=stroke: 검은 테두리를 글자 뒤에 깔아 어떤 배경에서도 읽히게 함 #}
+          <text x="{{ a['라벨'][0] }}" y="{{ a['라벨'][1] }}"
+                text-anchor="{{ 'end' if a['라벨'][0] > examples['크기'][0] // 2 else 'start' }}"
+                paint-order="stroke">{{ a['글'] }}</text>
+          {% endfor %}
+        </svg>
+      </div>
+      <figcaption><strong>{{ shot['제목'] }}</strong><br>{{ shot['설명'] }}</figcaption>
+    </figure>
+    {% endfor %}
+  </div>
+  {% endif %}
+  <p class="hint">각 측정 지점(Point)마다 이미지 <span class="num">3</span>장을 촬영합니다.
+     측정값은 이미지에 흰색 글자로 표시되며, 표시된 숫자의 글자 패턴을 대조해 측정값을 읽습니다.</p>
+</div>
+
+<div class="card demo-step">
+  <div class="demo-step-head">
+    <span class="demo-step-no num">2</span>
+    <h2>읽은 값을 목표값(Target)과 비교합니다</h2>
+  </div>
+  <table class="demo-plan">
+    {% for item in plan.cd_items %}
+    <tr><th>{{ plan.cd_label }}</th>
+        <td>목표값 <span class="num">{{ item.target }}</span></td>
+        <td class="demo-plan-pt"><span class="num">{{ item.points }}</span>개 지점</td></tr>
+    {% endfor %}
+    {% for item in plan.ls_items %}
+    <tr><th>Line &amp; Space</th>
+        <td>Line <span class="num">{{ item.target_line }}</span> / Space <span class="num">{{ item.target_space }}</span></td>
+        <td class="demo-plan-pt"><span class="num">{{ item.points }}</span>개 지점</td></tr>
+    {% endfor %}
+    <tr><th>Overlay</th>
+        <td>방향별 정렬 오차</td>
+        <td class="demo-plan-pt"><span class="num">{{ plan.overlay_points }}</span>개 지점</td></tr>
+  </table>
+  <p class="hint">{{ plan.process }} 공정 기준입니다. 촬영 순서에 의존하지 않고 <strong>가장 가까운
+     목표값</strong>에 매칭한 뒤, 목표값별 기준표에서 허용범위(USL/LSL)를 찾아 규격 내인지 판정합니다.</p>
+</div>
+
+<div class="card demo-step">
+  <div class="demo-step-head">
+    <span class="demo-step-no num">3</span>
+    <h2>결과를 리포트로 정리합니다</h2>
+  </div>
+  <p class="hint">항목별 검토 필요 건수와 규격 이탈 건수, Cpk 요약이 표시됩니다.
+     각 이미지에서 측정값을 읽은 위치와 인식 결과도 확인할 수 있으며,
+     Excel 및 HTML 리포트를 바로 다운로드할 수 있습니다.</p>
+  <p class="hint"><a href="{{ url_for('about') }}">이 도구를 어떻게 만들었는지 →</a></p>
   {% if limited %}
-    <div class="error">오늘 데모 실행 횟수({{ limit }}회)를 다 썼어요. 내일 다시 시도해주세요.</div>
+    <div class="flash flash-error">오늘 데모 실행 횟수({{ limit }}회)를 모두 사용했습니다.
+      내일 다시 시도해 주세요.</div>
   {% else %}
     <form method="post" action="{{ url_for('demo_start') }}">
-      <button type="submit">데모 실행하기</button>
+      <button type="submit" class="submit">데모 실행하기</button>
     </form>
-    <p class="foot">오늘 {{ count }}/{{ limit }}회 사용</p>
+    <p class="hint demo-quota">오늘 사용 횟수: <span class="num">{{ count }}/{{ limit }}</span>회 · 실제 공정 데이터가 아닙니다</p>
   {% endif %}
 </div>
 {% endblock %}

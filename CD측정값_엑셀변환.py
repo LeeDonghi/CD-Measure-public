@@ -258,9 +258,9 @@ def read_measured(files, templates, plan, progress_cb=None, run_dir=None):
                 r['확인사유'] = (r.get('확인사유')
                                or f'같은 사진에서 {missing}줄을 못 읽음')
             log.append(f'{name} → {kind}, 값 {len(rows)}개 읽음 (총 {line_count}줄)')
-            log.append(f'  {UNREAD_MARK} {name}: 측정값 {line_count}줄 중 {missing}줄을 못 읽었어요 '
+            log.append(f'  {UNREAD_MARK} {name}: 측정값 {line_count}줄 중 {missing}줄을 읽지 못했습니다 '
                         '(측정값 두 줄이 겹쳐 그려졌거나 글자가 뭉개진 경우) — '
-                        '사진을 열어 값을 직접 확인해주세요.')
+                        '사진을 열어 값을 직접 확인해 주세요.')
         else:
             log.append(f'{name} → {kind}, 값 {len(rows)}개 읽음')
 
@@ -337,8 +337,8 @@ def finish_processing(measured, plan, log, evidence_records, run_dir=None):
                         r['확인사유'] = (r.get('확인사유')
                                        or 'CD/L&S 어느 쪽인지 확신 불가')
                         log.append(f'  [확인] {name}: 값 {r["값"]}이(가) CD와 Line&Space '
-                                   '양쪽 스펙에 모두 들어와 종류를 확신할 수 없어요 — '
-                                   '사진을 확인해주세요.')
+                                   '양쪽 규격에 모두 들어와 종류를 확정할 수 없습니다 — '
+                                   '사진을 확인해 주세요.')
                 else:
                     r['항목'], r['Target'], r['편차'], r['Tolerance'] = '', '', '', ''
         elif category == 'L/S':
@@ -365,7 +365,7 @@ def finish_processing(measured, plan, log, evidence_records, run_dir=None):
                             rr['확인사유'] = (rr.get('확인사유')
                                             or 'Line/Space 배정이 밝기 검증과 다름')
                         log.append(f'  [확인] {name}: Line/Space 배정(크기 기준)이 크로스헤어 '
-                                    '밝기 검증과 달라요 — 사진을 확인해주세요.')
+                                    '밝기 검증과 다릅니다 — 사진을 확인해 주세요.')
             else:
                 for r in rows:
                     r['항목'], r['Target'], r['편차'], r['Tolerance'] = '', '', '', ''
@@ -409,8 +409,8 @@ def finish_processing(measured, plan, log, evidence_records, run_dir=None):
         point_no += 1
         actual_counts = Counter(category for _, _, category, _, _, _ in group)
         if len(group) != group_size or actual_counts != expected_counts:
-            log.append(f'  [경고] Point {point_no}: 한 세트(overlay/CD/L-S)가 맞지 않아요 '
-                        f'({[k for _, _, _, k, _, _ in group]}) → 사진을 확인해주세요.')
+            log.append(f'  [경고] Point {point_no}: 한 세트(overlay/CD/L-S)가 맞지 않습니다 '
+                        f'({[k for _, _, _, k, _, _ in group]}) → 사진을 확인해 주세요.')
 
         for path, name, category, kind, rows, _line_count in group:
             if category == 'overlay':
@@ -419,7 +419,7 @@ def finish_processing(measured, plan, log, evidence_records, run_dir=None):
                     overlay_summaries.append({'Point': point_no, '파일명': name, **metrics})
                 else:
                     log.append(f'  [경고] {name}: 상/하/좌/우 4방향이 모두 확인되지 않아 '
-                                'Overlay 지표를 계산하지 못했어요.')
+                                'Overlay 지표를 계산하지 못했습니다.')
 
             for r in rows:
                 all_rows.append({
@@ -638,7 +638,7 @@ def _launch(path):
         print(f'[열기] {path}')
         return True
     except Exception as e:
-        print(f'[알림] os.startfile 실패 ({e}) → cmd start로 다시 시도해요: {path}')
+        print(f'[알림] os.startfile 실패 ({e}) → cmd start로 다시 시도합니다: {path}')
 
     # 파일 연결이 없거나 startfile이 막힌 환경 대비 마지막 시도
     try:
@@ -646,7 +646,7 @@ def _launch(path):
         print(f'[열기·2차] {path}')
         return True
     except Exception as e:
-        print(f'[알림] 파일을 자동으로 열지 못했어요 — 직접 열어주세요: {path} ({e})')
+        print(f'[알림] 파일을 자동으로 열지 못했습니다 — 직접 열어 주세요: {path} ({e})')
         return False
 
 
@@ -661,7 +661,7 @@ def open_saved_files(paths):
         # 형태로 정리해둠. 절대경로로 바꿔야 실행 위치와 무관하게 열림.
         p = os.path.normpath(os.path.abspath(p))
         if not os.path.exists(p):
-            print(f'[알림] 열려던 파일이 없어요: {p}')
+            print(f'[알림] 열려던 파일이 없습니다: {p}')
             failed.append(p)
             continue
 
@@ -676,7 +676,7 @@ def open_saved_files(paths):
     if failed:
         messagebox.showwarning(
             '자동 열기 실패',
-            '아래 파일을 자동으로 열지 못했어요. 폴더에서 직접 열어주세요:\n\n'
+            '아래 파일을 자동으로 열지 못했습니다. 폴더에서 직접 열어 주세요:\n\n'
             + '\n'.join(failed))
 
 
@@ -772,8 +772,8 @@ def main():
 
     if not files:
         messagebox.showerror(
-            '오류', '이 폴더에 사진이 없어요.\n'
-            f'({" / ".join(IMAGE_EXTENSIONS)} 형식을 읽을 수 있어요)')
+            '오류', '이 폴더에 사진이 없습니다.\n'
+            f'({" / ".join(IMAGE_EXTENSIONS)} 형식을 읽을 수 있습니다)')
         return
 
     # jpg는 손실 압축이라 글자 가장자리가 미세하게 뭉개짐. 이 프로그램은 글자
@@ -785,10 +785,10 @@ def main():
     if lossy:
         messagebox.showwarning(
             'JPG 사진 안내',
-            f'JPG 사진이 {len(lossy)}장 있어요.\n\n'
-            'JPG는 압축 과정에서 글자가 살짝 뭉개져서, 숫자를 잘못 읽을 수 있어요 '
+            f'JPG 사진이 {len(lossy)}장 있습니다.\n\n'
+            'JPG는 압축 과정에서 글자가 살짝 뭉개져서, 숫자를 잘못 읽을 수 있습니다 '
             '(잘못 읽은 값은 "확인필요"로 표시되니 그 값들은 사진을 직접 확인해주세요).\n\n'
-            '가능하면 계측기에서 BMP나 PNG로 저장하시면 이런 문제가 없어요.')
+            '가능하면 계측기에서 BMP나 PNG로 저장하면 이런 문제가 없습니다.')
 
     templates = load_templates()
     # tkinter 창을 여기서만 쓰므로 import도 여기서만 함 - 이 파일은 웹에서도
@@ -802,7 +802,7 @@ def main():
     print('\n'.join(log))
 
     if not all_data:
-        messagebox.showerror('오류', '어떤 사진에서도 측정값을 읽지 못했어요.')
+        messagebox.showerror('오류', '어떤 사진에서도 측정값을 읽지 못했습니다.')
         return
 
     df = pd.DataFrame(all_data)[
@@ -838,16 +838,16 @@ def main():
 
     flagged = (df['확인필요'] == '예').sum()
     out_of_spec = (df['스펙이탈'] == '예').sum()
-    msg = f'완료! 파일이 저장됐어요:\n{save_path}\n{report_path}'
+    msg = f'완료! 파일을 저장했습니다:\n{save_path}\n{report_path}'
     if flagged:
-        msg += f'\n\n※ 확인이 필요한 값 {flagged}개가 있어요 ("확인필요" 열 참고)'
+        msg += f'\n\n※ 확인이 필요한 값 {flagged}개가 있습니다 ("확인필요" 열 참고)'
     if out_of_spec:
-        msg += f'\n※ 스펙(USL/LSL) 벗어난 값 {out_of_spec}개가 있어요 ("스펙이탈" 열 참고)'
+        msg += f'\n※ 스펙(USL/LSL) 벗어난 값 {out_of_spec}개가 있습니다 ("스펙이탈" 열 참고)'
     if not summary_df.empty and (summary_df['일치'] == '아니오').any():
-        msg += '\n※ 예상 포인트 수와 실제 매칭 개수가 다른 Item이 있어요 ("검증요약" 시트 참고)'
+        msg += '\n※ 예상 포인트 수와 실제 매칭 개수가 다른 항목이 있습니다 ("검증요약" 시트 참고)'
     unread = sum(1 for line in log if UNREAD_MARK in line)
     if unread:
-        msg += (f'\n※ 사진 {unread}장에서 측정값 일부를 못 읽었어요 (측정값 두 줄이 겹쳐 '
+        msg += (f'\n※ 사진 {unread}장에서 측정값 일부를 읽지 못했습니다 (측정값 두 줄이 겹쳐 '
                 '그려졌거나 글자가 뭉개진 경우). 해당 사진은 직접 확인해주세요 '
                 '(자세한 파일명은 실행 창에 표시됨)')
 

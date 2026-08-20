@@ -14,15 +14,15 @@
 
 <h1>못 읽은 값 입력</h1>
 <p class="hint">
-  사진 {{ pending|length }}장에서 일부 측정줄을 못 읽었어요. 사진에 보이는
-  값만 입력해주세요 — 오프셋(대부분 0)은 비워도 됩니다.
+  사진 {{ pending|length }}장에서 일부 측정줄을 읽지 못했습니다. 사진에 보이는
+  값만 입력해 주세요 — 오프셋(대부분 0)은 비워도 됩니다.
 </p>
 
 <form method="post" action="{{ url_for('manual_input_submit', run_id=run_id) }}">
 {% for item in pending %}
   <fieldset class="manual-item">
     <legend>{{ item.name }} ({{ item.kind }})</legend>
-    <p class="hint">측정줄 {{ item.line_count }}개 중 {{ item.missing }}개를 못 읽었어요</p>
+    <p class="hint">측정줄 {{ item.line_count }}개 중 {{ item.missing }}개를 읽지 못했습니다</p>
 
     <div class="manual-layout">
       <div class="manual-crops">
@@ -60,7 +60,7 @@
         </table>
         {% endif %}
 
-        <div class="manual-sub">못 읽은 값 — 사진에 보이는 값만 입력해주세요</div>
+        <div class="manual-sub">읽지 못한 값 — 사진에 보이는 값만 입력해 주세요</div>
         <div class="hint">예: &quot;0=100.2,XY=(100.2,0.0)&quot; 라면 100.2만 적으면 돼요.</div>
         <table class="manual-new">
           <tr><th>값</th><th>오프셋(선택)</th>
@@ -89,7 +89,7 @@
           {% if item.forced_directions is none %}
           <p class="hint">※ 상/하/좌/우가 하나씩 다 있어야 Overlay가 계산돼요</p>
           {% else %}
-          <p class="hint ok">※ 남은 방향은 자동으로 배정됐어요(값만 입력하면 됨)</p>
+          <p class="hint ok">※ 남은 방향은 자동으로 배정됩니다(값만 입력하면 됨)</p>
           {% endif %}
         {% endif %}
       </div>

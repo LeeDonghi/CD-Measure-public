@@ -18,7 +18,7 @@
   {% if messages %}{% for m in messages %}<div class="flash flash-info">{{ m }}</div>{% endfor %}{% endif %}
 {% endwith %}
 {% if is_demo %}
-<div class="flash flash-info">이 결과는 데모용 가짜 사진으로 만든 것입니다 — 실제 공정 데이터가 아니에요.</div>
+<div class="flash flash-info">이 결과는 데모용 예시 이미지로 만든 것입니다 — 실제 공정 데이터가 아닙니다.</div>
 {% endif %}
 <div class="card">
   <div class="result-head">
@@ -72,18 +72,92 @@
   {% if not is_demo %}
   <div class="danger-zone">
     {% if photos_deleted %}
-      <p class="deleted-note">✓ 원본 사진은 삭제됐어요 (엑셀/HTML 결과는 남아있음)</p>
+      <p class="deleted-note">✓ 원본 사진을 삭제했습니다 (엑셀/HTML 결과는 유지)</p>
     {% else %}
-      <p>엑셀에서 "확인필요" 값을 다 확인하셨으면, 원본 사진을 지워서 서버에 안 남게 할 수 있어요.
-         {% if flagged %}(지금 확인필요 {{ flagged }}개가 있으니, 먼저 사진으로 확인해보시는 걸 권해요){% endif %}</p>
+      <p>엑셀에서 "확인필요" 값을 모두 확인했다면, 원본 사진을 삭제해 서버에 남지 않도록 할 수 있습니다.
+         {% if flagged %}(지금 확인필요 {{ flagged }}개가 있으므로 먼저 사진으로 확인하시길 권합니다){% endif %}</p>
       <form method="post" action="{{ url_for('delete_photos', run_id=run_id) }}"
-            onsubmit="return confirm('원본 사진을 삭제할까요? 엑셀/HTML 결과는 남아있지만, 사진은 되돌릴 수 없어요.');">
+            onsubmit="return confirm('원본 사진을 삭제할까요? 엑셀/HTML 결과는 유지되지만, 사진은 되돌릴 수 없습니다.');">
         <button type="submit" class="btn-danger">원본 사진 삭제</button>
       </form>
     {% endif %}
   </div>
   {% endif %}
 </div>
+{% if is_demo and photo_reads and boxes %}
+<div class="card">
+  <h2>이미지에서 값이 나온 과정</h2>
+  <p class="run-summary">측정 지점(Point)을 선택하면 해당 지점의 이미지와 거기서 읽어낸 값을
+     나란히 확인할 수 있습니다. 초록색 사각형이 실제로 판독한 영역입니다.</p>
+
+  {# 파일명을 Point 번호별로 묶는다. 값이 있는 사진만 들어 있으므로 측정 전
+     사진(값 0개)은 자연히 빠진다. #}
+  {% set groups = {} %}
+  {% for name, rows in photo_reads['파일'].items() %}
+    {% set _ = groups.setdefault(rows[0]['Point'], []).append((name, rows)) %}
+  {% endfor %}
+
+  <div class="pt-tabs">
+    {% for pt in groups|sort %}
+    <button type="button" class="pt-tab{{ ' on' if loop.first else '' }}"
+            data-pt="{{ pt }}">지점 <span class="num">{{ pt }}</span></button>
+    {% endfor %}
+  </div>
+
+  {% for pt in groups|sort %}
+  <div class="pt-panel{{ ' on' if loop.first else '' }}" data-pt="{{ pt }}">
+    {% for name, rows in groups[pt] %}
+    <div class="pt-shot">
+      <div class="shot-frame">
+        <img src="{{ url_for('demo_photo', filename=name.rsplit('.', 1)[0] + '.jpg') }}"
+             alt="측정 지점 {{ pt }} 이미지" loading="lazy">
+        {# 프로그램이 실제로 읽은 영역. boxes.json의 (y0,y1,x0,x1)을 그대로 쓴다 #}
+        <svg class="shot-note" viewBox="0 0 {{ boxes['크기'][0] }} {{ boxes['크기'][1] }}"
+             preserveAspectRatio="none" aria-hidden="true">
+          {% for b in boxes['박스'].get(name, []) %}
+          <rect x="{{ b[2] }}" y="{{ b[0] }}"
+                width="{{ b[3] - b[2] }}" height="{{ b[1] - b[0] }}"/>
+          {% endfor %}
+        </svg>
+      </div>
+      <table class="pt-values">
+        {% for r in rows %}
+        <tr class="{{ 'out' if r['스펙이탈'] == '예' else 'in' }}">
+          {# Overlay 행은 '항목'이 비어 있고 방향(상/하/좌/우)만 있음 #}
+          <th>{{ r['항목'] or 'Overlay' }}{% if r['방향'] %} {{ r['방향'] }}{% endif %}</th>
+          <td><strong class="num">{{ r['측정값'] }}</strong></td>
+          {# Target이 없는 항목(Overlay)은 빈 문자열로 들어옴 - 스펙 판정을 안 함 #}
+          <td>{% if r['Target'] not in (None, '') %}
+                목표값 <span class="num">{{ r['Target'] }}</span>{% if r['USL'] not in (None, '') %}
+                (<span class="num">{{ r['LSL'] }}~{{ r['USL'] }}</span>){% endif %}
+                → {{ '이탈' if r['스펙이탈'] == '예' else '합격' }}
+              {% else %}기준 없음{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+</div>
+
+<script>
+  // 탭 전환. 서버 왕복 없이 보이기/숨기기만 한다 — loading="lazy"라 안 보이는
+  // 패널의 사진은 브라우저가 알아서 늦게 받는다.
+  document.querySelectorAll('.pt-tab').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var pt = btn.dataset.pt;
+      document.querySelectorAll('.pt-tab').forEach(function (b) {
+        b.classList.toggle('on', b === btn);
+      });
+      document.querySelectorAll('.pt-panel').forEach(function (p) {
+        p.classList.toggle('on', p.dataset.pt === pt);
+      });
+    });
+  });
+</script>
+{% endif %}
+
 {% if not is_demo %}
 <a class="new-link" href="{{ url_for('new_run') }}">+ 새 측정 시작하기</a>
 {% endif %}

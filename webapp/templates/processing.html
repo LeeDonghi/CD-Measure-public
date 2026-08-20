@@ -8,7 +8,7 @@
 
 {% block content %}
 <div class="card">
-  <h1 id="title">사진을 읽는 중이에요...</h1>
+  <h1 id="title">사진을 읽는 중입니다...</h1>
   <div class="bar"><div class="bar-fill" id="bar"></div></div>
   <p id="text">0 / {{ total }} 장</p>
   <div class="error-box hidden" id="errorBox">
@@ -50,11 +50,11 @@
       if (isDemo) {
         // 데모 폴더는 확인필요 0건으로 검증된 고정 폴더라 이 상태가 되면 안
         // 됨 - 로그인 필요한 입력 화면으로 보내는 대신 에러로 처리한다.
-        document.getElementById('title').textContent = '데모 처리 중 문제가 생겼어요';
-        document.getElementById('errorText').textContent = '예상치 못한 상태가 됐어요. 다시 시도해주세요.';
+        document.getElementById('title').textContent = '데모 처리 중 문제가 발생했습니다';
+        document.getElementById('errorText').textContent = '예상치 못한 상태입니다. 다시 시도해 주세요.';
         document.getElementById('errorBox').classList.remove('hidden');
       } else {
-        document.getElementById('text').textContent = '못 읽은 값이 있어요. 입력 화면으로 이동할게요...';
+        document.getElementById('text').textContent = '읽지 못한 값이 있습니다. 입력 화면으로 이동할게요...';
         window.location.href = `/manual_input/${runId}`;
       }
     } else if (data.status === 'done') {
@@ -62,7 +62,7 @@
       document.getElementById('text').textContent = '완료! 결과로 이동할게요...';
       window.location.href = resultUrl;
     } else if (data.status === 'error') {
-      document.getElementById('title').textContent = '처리 중 문제가 생겼어요';
+      document.getElementById('title').textContent = '처리 중 문제가 발생했습니다';
       document.getElementById('errorText').textContent = data.message || '알 수 없는 오류';
       document.getElementById('errorBox').classList.remove('hidden');
     } else {
