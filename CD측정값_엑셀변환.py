@@ -25,6 +25,7 @@ import pandas as pd
 import glob
 import json
 import os
+import unicodedata
 import sys
 import re
 import csv
@@ -35,10 +36,8 @@ import webbrowser
 from collections import Counter
 from pathlib import Path
 from tkinter import messagebox
-from openpyxl.styles import PatternFill
-from openpyxl.formatting.rule import CellIsRule
+from openpyxl.styles import PatternFill, Font
 from openpyxl.chart import BarChart, LineChart, Reference
-from openpyxl.utils import get_column_letter
 
 from ocr_core import load_templates, read_image_ex, read_image_attempts, MIN_LINE_WIDTH
 from plan_gui import collect_plan_and_folder
@@ -493,15 +492,87 @@ def process_folder(files, templates, plan, progress_cb=None, run_dir=None,
 # ------------------------------------------------------------
 #  엑셀 꾸미기: 스펙이탈 셀 색칠 + Cpk 막대그래프 + Item별 트렌드 차트
 # ------------------------------------------------------------
+# 이 엑셀은 "보고 끝내는 문서"가 아니라 사내 양식으로 옮겨 붙이는 원본이다
+# (사용자 확인: 측정결과·Cpk요약 두 시트를 통째로 복사해서 씀). 그래서 꾸미기의
+# 기준이 "예쁜가"가 아니라 "복사해서 붙였을 때 상대 양식을 망치지 않는가"다.
+#   - 색은 조건부 서식이 아니라 셀에 직접 칠한다. 조건부 서식은 붙여넣을 때
+#     규칙째 따라가서 상대 양식에 남의 규칙을 심어 버린다(2026-08-21 결정).
+#   - 머리글은 굵게만. 배경색을 넣으면 머리글째 복사할 때 회색이 따라붙는다.
+#   - 셀 병합·제목행·로고는 넣지 않는다. 복사 범위가 어긋난다.
+SPEC_RED = PatternFill(start_color='FFC7CE', end_color='FFC7CE', fill_type='solid')
+SPEC_YELLOW = PatternFill(start_color='FFEB9C', end_color='FFEB9C', fill_type='solid')
+SPEC_GREEN = PatternFill(start_color='C6EFCE', end_color='C6EFCE', fill_type='solid')
+
+TAB_COPY_TARGET = '1C3F5F'   # 사내 양식으로 복사해 가는 두 시트
+TAB_REFERENCE = 'A6ADB4'     # 참고용 시트
+
+# 표 모양을 갖춘 시트만 머리글 고정·자동 필터 대상. 트렌드차트 시트는 Item마다
+# 표가 따로 있는 다단 배치라 여기에 넣으면 안 된다(필터가 첫 표만 걸림).
+TABLE_SHEETS = ('측정결과', '검증요약', 'Overlay요약', 'Cpk요약')
+
+
+def _cell_width(value):
+    """엑셀 열 너비 계산용 글자 폭. 한글·전각 문자는 두 칸으로 센다."""
+    text = '' if value is None else str(value)
+    return sum(2 if unicodedata.east_asian_width(c) in ('W', 'F') else 1 for c in text)
+
+
+def _decimal_places(value):
+    """이 값이 실제로 쓰는 소수 자리수. 숫자가 아니면 None."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    text = repr(float(value))
+    if 'e' in text or 'E' in text:
+        return 6
+    return len(text.split('.')[1].rstrip('0')) if '.' in text else 0
+
+
+def _number_format(max_places):
+    """자리수를 코드에 박지 않는 이유: 공정마다 단위가 달라서(RDL은 100um대,
+    L&S는 5um대) 하나로 정하면 한쪽이 반올림된 것처럼 보인다. 대신 열에 실제로
+    들어 있는 값의 최대 자리수를 세서 서식을 만든다 — 한 열 안에서는 자리수가
+    늘 같으므로 이렇게 하면 값이 깎이는 일이 없다."""
+    return '0' if max_places <= 0 else '0.' + '0' * min(max_places, 6)
+
+
+def polish_workbook(writer):
+    """붙여넣기 안전한 최소 정비 — 열 너비, 머리글 굵게+틀 고정+자동 필터,
+    열별 숫자 표시 서식, 탭 색."""
+    for name, ws in writer.sheets.items():
+        ws.sheet_properties.tabColor = (
+            TAB_COPY_TARGET if name in ('측정결과', 'Cpk요약') else TAB_REFERENCE)
+        if name not in TABLE_SHEETS or ws.max_row < 1:
+            continue
+
+        for cell in ws[1]:
+            if cell.value is not None:
+                cell.font = Font(bold=True)
+        ws.freeze_panes = 'A2'
+        ws.auto_filter.ref = ws.dimensions
+
+        for column in ws.iter_cols(min_row=1, max_row=ws.max_row):
+            places = [_decimal_places(c.value) for c in column[1:]]
+            places = [x for x in places if x is not None]
+            fmt = _number_format(max(places)) if places else None
+            width = _cell_width(column[0].value)
+            for cell in column[1:]:
+                if fmt and _decimal_places(cell.value) is not None:
+                    cell.number_format = fmt
+                    width = max(width, len(f'{cell.value:.{max(places)}f}'))
+                else:
+                    width = max(width, _cell_width(cell.value))
+            # 8은 날짜·짧은 머리글이 눌리지 않는 하한, 40은 '확인사유'처럼 문장이
+            # 들어가는 열이 화면을 다 먹지 않게 하는 상한.
+            ws.column_dimensions[column[0].column_letter].width = min(max(width + 2, 8), 40)
+
+
 def style_result_sheet(writer, df):
     ws = writer.sheets['측정결과']
-    col = {name: get_column_letter(i + 1) for i, name in enumerate(df.columns)}
-    n = len(df) + 1  # 헤더 포함 마지막 행
-    red_fill = PatternFill(start_color='FFC7CE', end_color='FFC7CE', fill_type='solid')
-    rng = f'{col["스펙이탈"]}2:{col["스펙이탈"]}{n}'
-    ws.conditional_formatting.add(
-        rng, CellIsRule(operator='equal', formula=['"예"'], fill=red_fill)
-    )
+    spec_col = df.columns.get_loc('스펙이탈') + 1
+    for row in range(2, len(df) + 2):
+        cell = ws.cell(row=row, column=spec_col)
+        if cell.value == '예':
+            cell.fill = SPEC_RED
 
 
 def add_cpk_sheet(writer, stats_rows):
@@ -519,28 +590,28 @@ def add_cpk_sheet(writer, stats_rows):
     ws = writer.sheets['Cpk요약']
     n = len(stats_df) + 1
 
-    # CPK 등급 색칠: 1.33 이상 초록, 1.0~1.33 노랑, 1.0 미만 빨강
-    cpk_col = get_column_letter(stats_df.columns.get_loc('CPK') + 1)
-    rng = f'{cpk_col}2:{cpk_col}{n}'
-    ws.conditional_formatting.add(rng, CellIsRule(
-        operator='lessThan', formula=['1.0'],
-        fill=PatternFill(start_color='FFC7CE', end_color='FFC7CE', fill_type='solid')))
-    ws.conditional_formatting.add(rng, CellIsRule(
-        operator='between', formula=['1.0', '1.33'],
-        fill=PatternFill(start_color='FFEB9C', end_color='FFEB9C', fill_type='solid')))
-    ws.conditional_formatting.add(rng, CellIsRule(
-        operator='greaterThanOrEqual', formula=['1.33'],
-        fill=PatternFill(start_color='C6EFCE', end_color='C6EFCE', fill_type='solid')))
+    # CPK 등급 색칠: 1.0 미만 빨강, 1.33까지 노랑, 그보다 크면 초록.
+    # ⚠️ 딱 1.33인 값은 노랑이다 — 전에 쓰던 조건부 서식에서 '1.0~1.33 사이' 규칙이
+    # '1.33 이상' 규칙보다 우선순위가 높아서 그렇게 보였고, 색칠 방식만 바꾸는
+    # 김에 보이는 색까지 바뀌면 안 되므로 그대로 뒀다.
+    cpk_col = stats_df.columns.get_loc('CPK') + 1
+    verdict_col = stats_df.columns.get_loc('판정') + 1
+    for row in range(2, n + 1):
+        cell = ws.cell(row=row, column=cpk_col)
+        if isinstance(cell.value, (int, float)) and not isinstance(cell.value, bool):
+            if cell.value < 1.0:
+                cell.fill = SPEC_RED
+            elif cell.value <= 1.33:
+                cell.fill = SPEC_YELLOW
+            else:
+                cell.fill = SPEC_GREEN
 
-    # 판정 색칠: FAIL은 빨강, PASS는 초록 (측정결과 시트의 스펙이탈 색과 같은 계열)
-    verdict_col = get_column_letter(stats_df.columns.get_loc('판정') + 1)
-    v_rng = f'{verdict_col}2:{verdict_col}{n}'
-    ws.conditional_formatting.add(v_rng, CellIsRule(
-        operator='equal', formula=['"FAIL"'],
-        fill=PatternFill(start_color='FFC7CE', end_color='FFC7CE', fill_type='solid')))
-    ws.conditional_formatting.add(v_rng, CellIsRule(
-        operator='equal', formula=['"PASS"'],
-        fill=PatternFill(start_color='C6EFCE', end_color='C6EFCE', fill_type='solid')))
+        # 판정 색칠: FAIL은 빨강, PASS는 초록 (측정결과 시트의 스펙이탈 색과 같은 계열)
+        verdict = ws.cell(row=row, column=verdict_col)
+        if verdict.value == 'FAIL':
+            verdict.fill = SPEC_RED
+        elif verdict.value == 'PASS':
+            verdict.fill = SPEC_GREEN
 
     # CPK 막대그래프
     chart = BarChart()
@@ -831,6 +902,7 @@ def main():
             overlay_df.to_excel(writer, sheet_name='Overlay요약', index=False)
         add_cpk_sheet(writer, stats_rows)
         add_trend_sheet(writer, df, plan)
+        polish_workbook(writer)   # 시트가 다 만들어진 뒤에 한 번에 정비
 
     item_breakdown = compute_item_breakdown(all_data, plan, unread_by_file(log))
     report_path = os.path.join(folder, '측정결과.html')

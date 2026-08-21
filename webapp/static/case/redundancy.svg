@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300" width="720" height="300" font-family="Malgun Gothic, Apple SD Gothic Neo, sans-serif" role="img" aria-label="값과 좌표의 직각삼각형 관계로 검산하는 방법">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 344" width="720" height="344" font-family="Malgun Gothic, Apple SD Gothic Neo, sans-serif" role="img" aria-label="값과 좌표의 직각삼각형 관계로 검산하는 방법">
 
 <!-- 왼쪽 칸: 통과 사례 (regression_baseline/Sample.json, CaptImg20260619093550.bmp 번호3) -->
 <rect x="0" y="0" width="348" height="300" rx="7" fill="#ffffff" stroke="#d8dee4"/>
@@ -51,6 +51,7 @@
 <rect x="522" y="234" width="150" height="24" rx="4" fill="#f6e9e6" stroke="#e3c9c2"/>
 <text x="533" y="250" font-size="12.5" font-weight="700" fill="#8a3f2e">0.05 초과 → 확인필요</text>
 
-<!-- 두 칸을 잇는 한 줄 설명 -->
-<text x="20" y="288" font-size="12" fill="#5c6b78">값과 좌표는 줄 안에서 따로 찍히고 OCR도 따로 읽는다 — 그래서 서로를 검산할 수 있다. (칸 안의 X:Y 비율은 실제와 같고, 칸끼리의 축척은 다름)</text>
+<!-- 두 칸을 잇는 설명. 한 줄에 담으면 폭이 838px라 viewBox(720)를 넘어 잘려서 두 줄로 나눔 -->
+<text x="20" y="320" font-size="12" fill="#5c6b78">값과 좌표는 줄 안에서 따로 찍히고 OCR도 따로 읽습니다 — 그래서 서로를 검산할 수 있습니다.</text>
+<text x="20" y="338" font-size="12" fill="#5c6b78">(칸 안의 X:Y 비율은 실제와 같고, 칸끼리의 축척은 다릅니다)</text>
 </svg>

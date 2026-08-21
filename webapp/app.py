@@ -636,6 +636,7 @@ def _finalize_and_save(run_dir, plan, files, all_data, overlay_summaries, log,
             overlay_df.to_excel(writer, sheet_name='Overlay요약', index=False)
         core.add_cpk_sheet(writer, stats_rows)
         core.add_trend_sheet(writer, df, plan)
+        core.polish_workbook(writer)   # 시트가 다 만들어진 뒤에 한 번에 정비
 
     flagged = int((df['확인필요'] == '예').sum())
     out_of_spec = int((df['스펙이탈'] == '예').sum())
