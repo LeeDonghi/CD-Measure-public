@@ -590,10 +590,11 @@ def add_cpk_sheet(writer, stats_rows):
     ws = writer.sheets['Cpk요약']
     n = len(stats_df) + 1
 
-    # CPK 등급 색칠: 1.0 미만 빨강, 1.33까지 노랑, 그보다 크면 초록.
-    # ⚠️ 딱 1.33인 값은 노랑이다 — 전에 쓰던 조건부 서식에서 '1.0~1.33 사이' 규칙이
-    # '1.33 이상' 규칙보다 우선순위가 높아서 그렇게 보였고, 색칠 방식만 바꾸는
-    # 김에 보이는 색까지 바뀌면 안 되므로 그대로 뒀다.
+    # CPK 등급 색칠: 1.0 미만 빨강, 1.33 미만 노랑, 1.33 이상 초록.
+    # ⚠️ 딱 1.33인 값은 초록이다. Cpk 1.33은 '공정능력 있음'의 관례적 기준선이라
+    # 이쪽이 맞다고 사용자가 정했다(2026-08-21). 그전에 쓰던 조건부 서식에서는
+    # '1.0~1.33 사이' 규칙이 '1.33 이상' 규칙보다 우선순위가 높아 노랑으로 보였는데,
+    # 그게 의도한 게 아니었다.
     cpk_col = stats_df.columns.get_loc('CPK') + 1
     verdict_col = stats_df.columns.get_loc('판정') + 1
     for row in range(2, n + 1):
@@ -601,7 +602,7 @@ def add_cpk_sheet(writer, stats_rows):
         if isinstance(cell.value, (int, float)) and not isinstance(cell.value, bool):
             if cell.value < 1.0:
                 cell.fill = SPEC_RED
-            elif cell.value <= 1.33:
+            elif cell.value < 1.33:
                 cell.fill = SPEC_YELLOW
             else:
                 cell.fill = SPEC_GREEN
